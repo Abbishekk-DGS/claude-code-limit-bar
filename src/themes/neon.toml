@@ -1,68 +1,110 @@
-# neon: sign-lit colours on black. Gauges run blue to violet to pink, so the fuller
-# the gauge, the hotter its end.
-extends = "indigo"
-description = "Sign-lit colours on black, with gradient gauges running blue to pink."
+# neon: the look of the bar. Saturated colours on your terminal's own background, with
+# gauges running blue to violet to pink, so the fuller the gauge, the hotter its end.
+# The colours are deep enough to read on white and bright enough to read on black.
+# Override any of this in config.toml, or with `set` and `color`.
+description = "Saturated colours on a transparent background, with gradient gauges running blue to pink."
 
 [palette]
 panel  = "#07070d"
 text   = "#f2f2ff"
-blue   = "#0090ff"
-cyan   = "#00f5ff"
-violet = "#9d2bff"
-pink   = "#ff2bd6"
-lime   = "#39ff14"
-accent = "#00f5ff"
-muted  = "#8585a8"
-track  = "#22223a"
-ok     = "#00f5ff"
-warn   = "#ffe600"
-hot    = "#ff2bd6"
+blue   = "#0a84ff"
+cyan   = "#0097b2"
+violet = "#9b3dff"
+pink   = "#e6129f"
+lime   = "#17a300"
+accent = "#0097b2"
+muted  = "#7f7f9c"
+faint  = "#7f7f9c"
+track  = "#3a3a55"
+ok     = "#0097b2"
+warn   = "#c77700"
+hot    = "#e6129f"
+add    = "#17a300"
+del    = "#e6129f"
+white  = "#ffffff"
+
+[settings]
+bar = "meter"
+gauge_width = 10
+gauge_show = "used"   # used | left
+clock = "24h"         # 24h | 12h
+sep = " <pink>{g.rule}</> "
+
+# Plain text takes your terminal's own colour, so it reads on any background.
+[style]
+model = "bold"
+text = ""
 
 [bars.meter]
+left = "["
+right = "]"
+label = true
+fill = "█"
+track = true
 color = "ramp"
 ramp = ["blue", "violet", "pink"]
 cap_style = "pink"
+empty_style = "track"
+label_fill = "white"
+label_track = "white"
+
+[bars.thin]
+fill = "━"
+empty = "╌"
+color = "ramp"
+ramp = ["blue", "violet", "pink"]
+empty_style = "track"
+
+[bars.ticks]
+fill = "▮"
+empty = "▯"
+color = "ramp"
+ramp = ["blue", "violet", "pink"]
+empty_style = "track"
+
+[bars.dots]
+fill = "●"
+empty = "○"
+color = "ramp"
+ramp = ["blue", "violet", "pink"]
+empty_style = "track"
+
+[bars.ascii]
+left = "["
+right = "]"
+label = true
+fill = "#"
+empty = "-"
+empty_style = "muted"
 
 [glyphs]
+rule  = { unicode = "┃", ascii = "|" }
 alarm = { unicode = "⚡", ascii = "!" }
+to    = { unicode = "→", ascii = ">" }
 into  = { unicode = "▸", ascii = ">" }
 gear  = { unicode = "✦", ascii = "*" }
+skill = { unicode = "✧", ascii = "sk" }
+mcp   = { unicode = "⌁", ascii = "mcp" }
+stash = { unicode = "≡", ascii = "stash" }
+tag   = { unicode = "⌑", ascii = "tag" }
+turn  = { unicode = "↻", ascii = "turns" }
+pack  = { unicode = "⇣", ascii = "compact" }
 
-[module.model]
-format = "<grad:cyan,pink bold>{model.name}</>{if ctx.tokens && ctx.size}<=ctx.pct >= 60 ? severity(ctx.pct) : 'muted'>({ctx.tokens | tokens}/{ctx.size | tokens})</>{end}"
-compact = "<grad:cyan,pink bold>{model.name}</>"
+[var]
+h5_color = "severity(limit.h5.projected ?? limit.h5.pct)"
+d7_color = "severity(limit.d7.projected ?? limit.d7.pct)"
 
-[module.place]
-format = "<pink>{g.into}</> <grad:pink,violet bold>{dir.name}</> {if git.repo}<lime>{g.branch} {git.branch ?? git.oid | trunc:28}</>{if git.dirty}<warn>{g.dirty}</>{end}{else}<muted italic>(no git)</>{end}"
-compact = "<pink>{g.into}</> <grad:pink,violet bold>{dir.name}</>"
+# How every row looks. Empty means transparent: your terminal's background shows
+# through. For a solid black panel use: style = "fg:white on:panel" and full = true.
+# The rows themselves are in [layout].
+[row]
 
-[module.set_effort]
-format = "<pink>{g.gear}</> <muted>effort:</>{effort.level}"
-[module.set_think]
-format = "<muted>think:</>{if thinking}<lime>on</>{else}off{end}"
-[module.set_fast]
-format = "<muted>fast:</>{if fast}<lime>on</>{else}off{end}"
-
-[[line]]
-style = "fg:text on:panel"
-full = true
-prefix = " "
-suffix = " "
-sep = " <pink>┃</> "
-left = ["h5", "d7", "model", "cache"]
-
-[[line]]
-style = "fg:text on:panel"
-full = true
-prefix = " "
-suffix = " "
-sep = " <violet>{g.dot}</> "
-left = ["place", "version"]
-
-[[line]]
-style = "fg:text on:panel"
-full = true
-prefix = " "
-suffix = " "
-sep = " <violet>{g.dot}</> "
-left = ["set_effort", "set_think", "set_fast", "set_style"]
+# A row with nothing to show disappears. A ">" pushes what follows to the right.
+[layout]
+rows = [
+  ["h5", "d7", "ctx", "h5_forecast"],
+  ["user", "git", "git_sync", "git_changes", "git_op", "pr", "worktree", "lines", ">", "agent", "vim"],
+  ["model", "effort", "think", "fast", "style", "cache", ">", "version"],
+  ["tool", "agents", "todo", "skills"],
+  ["duration", "turns", "tools", "compactions", "speed", "burn", ">", "clock"],
+]

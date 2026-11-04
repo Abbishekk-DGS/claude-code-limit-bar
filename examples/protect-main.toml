@@ -1,5 +1,4 @@
 # Make it hard to miss that you are working directly on a protected branch.
-theme = "graphite"
 
 [style]
 danger_chip = "#ffffff bold on:hot"

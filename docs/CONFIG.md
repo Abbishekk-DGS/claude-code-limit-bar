@@ -20,22 +20,22 @@ except `[[when]]` rules, which add up.
 | Order | Source | Notes |
 |---|---|---|
 | 1 | Built-in defaults | `src/defaults.toml` |
-| 2 | Theme | `~/.config/limit-bar/themes/NAME.toml`, then built-in themes |
+| 2 | The neon look | `src/themes/neon.toml` |
 | 3 | `~/.limit-bar.toml` | Optional, for people who keep one dotfile |
 | 4 | `~/.config/limit-bar/conf.d/*.toml` | In name order, handy for dotfile managers |
 | 5 | `~/.config/limit-bar/config.toml` | Your main file (`config.json` also works) |
-| 6 | `.limit-bar.toml` in the project | Ignored until you run `limit-bar trust` |
+| 6 | `~/.config/limit-bar/custom.toml` | Written by `show`, `hide`, `move`, `set`, `color` and `customize`. `reset` deletes it |
+| 7 | `.limit-bar.toml` in the project | Ignored until you run `limit-bar trust` |
 
-Environment variables win over everything: `LIMITBAR_THEME`, `LIMITBAR_COLOR`,
-`LIMITBAR_CHARSET`. `LIMITBAR_CONFIG=/path/file.toml` replaces layers 3 to 5, and
-`LIMITBAR_NO_PROJECT=1` skips layer 6. `XDG_CONFIG_HOME` is respected, and `NO_COLOR`
+Environment variables win over everything: `LIMITBAR_COLOR`, `LIMITBAR_CHARSET`.
+`LIMITBAR_CONFIG=/path/file.toml` replaces layers 3 to 6, and
+`LIMITBAR_NO_PROJECT=1` skips layer 7. `XDG_CONFIG_HOME` is respected, and `NO_COLOR`
 turns colour off.
 
 ## Top-level keys
 
 | Key | What it does |
 |---|---|
-| `theme` | Theme to build on |
 | `[settings]` | Global options, below |
 | `[palette]` | Named colours |
 | `[style]` | Named styles |
@@ -44,13 +44,15 @@ turns colour off.
 | `[var]` | Named expressions |
 | `[source.NAME]` | Data from a command, file or environment variable |
 | `[module.NAME]` | A piece of the bar |
-| `[[line]]` | A row in the terminal. Your `[[line]]` replaces the theme's layout |
-| `[[append_line]]` | A row added under the theme's layout, so it follows you between themes |
+| `[layout]` | `rows`, a list of rows, each a list of module names. A `">"` pushes what follows to the right |
+| `[row]` | The look every `[layout]` row shares |
+| `[subagent]` | `format`, `style` and `disabled` for the rows in Claude Code's agent panel |
+| `[[line]]` | The expert route: a fully specified row. Any `[[line]]` replaces `[layout]` |
+| `[[append_line]]` | A fully specified row added under the layout |
 | `[[when]]` | A rule that overrides any of the above |
 
-In a theme file, `extends = "other"` inherits from another theme and `description`
-is shown by `limit-bar themes`. Themes cannot contain `[source]`, so a theme you
-download can never run a command.
+There is one look, neon. `theme = "neon"` is accepted and does nothing, and any other
+name gets a warning from `validate`.
 
 ## Settings
 
@@ -66,7 +68,11 @@ download can never run a command.
 | `git_ttl` | `2` | Seconds a git result is reused |
 | `ctx_limit` | `100` | Percentage `ctx.eta` counts down to |
 | `links` | `true` | Clickable links where the terminal supports them |
-| `notices` | `true` | Show hints such as "run limit-bar trust" |
+| `notices` | `true` | Show setup hints in the bar |
+| `username` | your login | What the `user` module calls you |
+| `gauge_width` | `10` | Cells in a gauge that does not set its own width |
+| `gauge_show` | `"used"` | `used` or `left`: what gauges fill up with |
+| `clock` | `"24h"` | `24h` or `12h`, for `time.clock` and reset times |
 
 ## Lines
 
@@ -88,7 +94,7 @@ A side is a list of module names, a template string, or a list mixing both.
 | `mode` | `flat`, `powerline` (segments joined by arrows) or `capsule` (rounded chips) |
 | `prefix`, `suffix` | Templates at the very ends, such as border characters |
 | `fill`, `fill_style` | Character used to fill the gap between sides |
-| `style` | Sits under everything on the line. With `full = true` and `on:COLOUR`, the theme brings its own background |
+| `style` | Sits under everything on the line. With `full = true` and `on:COLOUR`, the row brings its own background |
 | `full` | `true` always uses the whole width |
 | `keep` | `true` keeps the row even when it is empty |
 | `if` | Expression. The row only shows when this is true |
@@ -123,14 +129,14 @@ link = "https://example.com"
 | `priority` | 0 to 100, higher stays longer. Default 50 |
 | `link` | Makes the module clickable. Only `http`, `https` and `file` are allowed |
 | `disabled` | `true` turns it off |
+| `about` | One line shown by `modules` and `customize` |
+| `group` | Heading in `modules` and `customize`. `"hidden"` keeps it out of both |
 
 A module that renders only blank space hides itself and takes its separator with it.
 
-Built-in modules: `user`, `host`, `user_host`, `os`, `shell`, `load`, `model`, `effort`, `fast`, `thinking`, `output_style`, `agent`, `vim`,
-`version`, `session`, `dir`, `path`, `project`, `repo`, `worktree`, `pr`, `git`,
-`git_changes`, `git_sync`, `lines`, `ctx`, `ctx_tokens`, `ctx_trend`, `ctx_eta`, `h5`,
-`h5_forecast`, `d7`, `spend`, `cost`, `cost_rate`, `duration`, `clock`, `cache`,
-`cache_ttl`, `tool`, `agents`, `todo`.
+`limit-bar modules` lists the built-in modules with what each one shows. The modules
+`cost`, `cost_rate` and `spend` show dollar amounts, so they stay out of that list and
+the default rows. They still work if you add them by hand.
 
 ## Templates
 
@@ -160,7 +166,7 @@ not preceded by a space. So write comparisons as `a > b` or `a >= b`.
 | `fixed` | Fixed decimals, 2 by default |
 | `money` | `$1.84`. `money:0` sets decimals |
 | `tokens` | `1.5k`, `200k`, `1M` |
-| `dur` | Seconds as `2h14m`. `dur:1` keeps one unit, `dur:2:'pad'` keeps a fixed width: `21h08m` |
+| `dur` | Seconds as `2h14m`. `dur:1` keeps one unit, `dur:2:'pad'` keeps the second unit two digits wide: `21h08m` |
 | `clock` | Seconds as `47:10`, or `2:33:00` from one hour up |
 | `upper` | Upper case |
 | `lower` | Lower case |
@@ -304,9 +310,10 @@ A `[[when]]` rule overrides anything when its condition is true. Rules run in or
 
 ```toml
 [[when]]
-name = "take over when a limit is close"
+name = "show the forecasts when a limit is close"
 if = "ctx.pct >= 85 || limit.h5.pct >= 85"
-theme = "cockpit"
+[when.layout]
+rows = [["h5", "d7", "ctx"], ["h5_forecast", "d7_forecast", "ctx_eta", "burn"]]
 
 [[when]]
 if = "git.branch == 'main'"
@@ -326,7 +333,6 @@ left = ["model", "ctx"]
 |---|---|
 | `if` | Expression. No `if` means always |
 | `name` | Label shown by `limit-bar explain` |
-| `theme` | Swap to another theme |
 | `stop` | Skip the remaining rules |
 | Any other key | Overrides that part of the config |
 
@@ -393,6 +399,8 @@ all of these with live values.
 | `ctx.fresh` | Uncached input tokens |
 | `ctx.cache_read` | Tokens read from cache |
 | `ctx.cache_write` | Tokens written to cache |
+| `ctx.over_200k` | The session has passed 200k tokens |
+| `speed.output` | Output tokens per second of model time. Reads low after subagents, whose time counts but whose tokens do not |
 | `ctx.eta` | Seconds until `ctx_limit` at the current rate |
 | `cost.usd` | Session cost |
 | `cost.duration` | Session length |
@@ -407,6 +415,7 @@ all of these with live values.
 | `limit.h5.resets_at` | Reset time, epoch seconds |
 | `limit.h5.left` | Seconds until reset |
 | `limit.h5.reset_clock` | Reset time, `17:40` |
+| `limit.h5.reset_day` | Reset day and time, `Sat 17:40` |
 | `limit.h5.elapsed` | Seconds of the window gone |
 | `limit.h5.projected` | Percent at reset if the pace holds |
 | `limit.h5.pace` | `projected / 100`, above 1 means over pace |
@@ -417,6 +426,7 @@ all of these with live values.
 | `limit.d7.resets_at` | As above |
 | `limit.d7.left` | As above |
 | `limit.d7.reset_clock` | As above |
+| `limit.d7.reset_day` | Reset day and time, `Sat 17:40` |
 | `limit.d7.elapsed` | As above |
 | `limit.d7.projected` | As above |
 | `limit.d7.pace` | As above |
@@ -427,6 +437,7 @@ all of these with live values.
 | `limit.spend.resets_at` | As above |
 | `limit.spend.left` | As above |
 | `limit.spend.reset_clock` | As above |
+| `limit.spend.reset_day` | Reset day and time, `Sat 17:40` |
 | `limit.spend.elapsed` | As above |
 | `limit.spend.projected` | As above |
 | `limit.spend.pace` | As above |
@@ -464,6 +475,13 @@ all of these with live values.
 | `git.changed` | All of the above |
 | `git.dirty` | Anything changed |
 | `git.clean` | Nothing changed |
+| `git.op` | `merge`, `rebase`, `cherry-pick`, `revert` or `bisect` in progress |
+| `git.stash` | Number of stashes |
+| `git.added` | Lines added in the working tree |
+| `git.removed` | Lines removed in the working tree |
+| `git.tag` | Tag on the current commit |
+| `git.last_commit_at` | Last commit, epoch seconds |
+| `git.age` | Seconds since the last commit |
 | `history.ctx` | Recent context percentages, for `spark` |
 | `history.cost` | Recent cost values |
 | `history.h5` | Recent five-hour values |
@@ -477,6 +495,22 @@ all of these with live values.
 | `tool.target` | What it is working on |
 | `tool.running` | Tools running |
 | `tool.agents` | Subagents running |
+| `tool.elapsed` | Seconds the current tool has run |
+| `agents.running` | Foreground subagents running |
+| `agents.background` | Background subagents still running |
+| `agents.spawned` | Subagents started this session |
+| `stats.turns` | Turns completed |
+| `stats.messages` | Messages in the conversation |
+| `stats.tools` | Tool calls this session |
+| `stats.top_tool` | Most used tool |
+| `stats.top_tool_count` | Times it was used |
+| `stats.compactions` | Times the session was compacted |
+| `stats.last_turn` | Seconds the last turn took |
+| `stats.skills` | Skills used |
+| `stats.last_skill` | Latest skill used |
+| `stats.mcp` | MCP servers called |
+| `stats.agents_spawned` | Subagents started |
+| `stats.output_tokens` | Output tokens this session, not counting subagents |
 | `todo.done` | Finished todos |
 | `todo.total` | All todos |
 | `todo.current` | Todo in progress |

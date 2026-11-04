@@ -1,5 +1,4 @@
 # Latest CI run for this branch, using the GitHub CLI and its JSON output.
-theme = "graphite"
 
 [source.ci]
 command = "gh run list --branch \"$(git branch --show-current)\" --limit 1 --json conclusion,status"

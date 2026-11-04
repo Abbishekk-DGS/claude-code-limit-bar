@@ -1,9 +1,9 @@
 # claude-code-limit-bar
 
-A status line for Claude Code that you build entirely from a dotfile. Layouts, colours,
-gauges, every built-in module and the rules that change them all live in plain TOML.
+A neon status line for Claude Code. Rate limits, context, git, running tools, subagents
+and session totals, in a bar you can rearrange from a live editor or a dotfile.
 
-![The built-in themes, each shown in a normal session and close to the limit](assets/themes.png)
+![The neon bar on a white terminal and a black terminal](assets/neon.png)
 
 ```sh
 npx github:Abbishekk-DGS/claude-code-limit-bar install
@@ -12,44 +12,74 @@ npx github:Abbishekk-DGS/claude-code-limit-bar install
 That also gives you the short command `limit-bar`, used below. Your next session uses it. Needs Node 18 or newer and has no dependencies. Your existing
 status line is saved, and `limit-bar uninstall` puts it back.
 
-## Themes
+The background is transparent, so your terminal shows through, and the colours are picked
+to read on both white and black. The bar calls you by your username. It never shows the folder, the repo or its own name
+unless you turn those on, so nothing about the project you are in ends up in a screenshot.
 
-Each theme is one readable TOML file, and they differ in layout as well as colour.
+## What it shows
 
-| Theme | What it is |
-|---|---|
-| `indigo` | Three lines: gauges with the percentage inside, then place, then session settings |
-| `cyberpunk` | Same layout in black, yellow, cyan and magenta, all in capitals |
-| `minecraft` | Same layout with each line a layer of ground: grass, dirt, stone |
-| `neon` | Same layout on black, with gradient gauges running blue to pink. The default |
-| `matrix` | Same layout in green on black |
-| `gameboy` | Same layout in the four greens of the original handheld |
-| `graphite` | One quiet line, grey until something needs your attention |
-| `cockpit` | Two-line instrument panel with trends, forecasts and a caution chip |
-| `dusk` | Framed panel with one gradient running through the whole border |
+Rows with nothing to show disappear. The defaults are:
 
-```sh
-limit-bar themes        # see them, live
-limit-bar use cockpit   # switch, keeping the comments in your config
-```
+1. **Limits.** 5-hour and 7-day gauges with the time to reset and where your pace is
+   heading, the context gauge, and a warning when you will hit the limit before it resets.
+2. **You and git.** Username, branch, ahead and behind, staged, modified, untracked and
+   conflicted files, merge or rebase in progress, pull request, worktree, lines changed.
+3. **The session.** Model and tokens, effort, thinking, fast mode, output style, prompt
+   cache countdown, Claude Code version.
+4. **Right now.** Running tool with its target and elapsed time, subagents including
+   background ones, todos, skills.
+5. **Totals.** Session length, turns, tool calls, compactions, output speed, token burn.
 
-`indigo` stays readable on light and dark terminals, and `cyberpunk`, `minecraft`,
-`neon`, `matrix` and `gameboy` paint their own background so they look the same on
-both. The other three are designed for dark terminals. None need a special font. Set
-`charset = "nerd"` if yours has Nerd Font glyphs, or `ascii` for old terminals. Any
-theme can be copied and changed with `limit-bar theme new NAME --from cockpit`.
+Another 40 or so can be turned on, such as stashes, tags, time since the last commit,
+reset clock times, sparklines, cache hit rate and misses, MCP servers, and SSH or tmux
+flags. `limit-bar modules` lists them all. Subagents also get neon rows in Claude Code's
+agent panel, with their model, elapsed time, token trend and share of their context.
 
 ## Make it yours
 
-Config lives in `~/.config/limit-bar/config.toml`. `limit-bar init` writes a commented starter.
-Each step below is a complete, working change.
+**The live editor** shows the bar updating as you go:
+
+```sh
+limit-bar customize
+```
+
+Space turns a module on or off, the arrow keys change its row, `[` and `]` reorder it, and
+`g`, `w`, `u` and `c` change the gauge design, gauge width, used or left, and the clock.
+
+**The same from the command line:**
+
+```sh
+limit-bar show git_stash --row 2 --after git_changes
+limit-bar hide version
+limit-bar move clock --row 1
+limit-bar set username neo
+limit-bar set gauge_width 14
+limit-bar set bar thin            # meter, thin, ticks or dots
+limit-bar color pink "#ff00aa"
+limit-bar reset                   # back to the defaults
+```
+
+These save to `~/.config/limit-bar/custom.toml`, so they never touch your own config.
+
+**Or write it by hand.** Your own config lives in `~/.config/limit-bar/config.toml`.
+`limit-bar init` writes a commented starter. Each step below is a complete, working change.
+
+**Choose your rows.** A `">"` pushes what follows to the right.
+
+```toml
+[layout]
+rows = [
+  ["h5", "d7", "ctx"],
+  ["user", "git", "git_changes", ">", "clock"],
+]
+```
 
 **Recolour anything**
 
 ```toml
 [palette]
-accent = "#7fe3dd"
-hot = "#ff7a1a"
+cyan = "#7fe3dd"
+pink = "#ff7a1a"
 ```
 
 **Rewrite a built-in module.** They are all ordinary config, so
@@ -61,25 +91,17 @@ format = "context {ctx.pct | bar:20:dots} {ctx.tokens | tokens}"
 style = "= ctx.pct > 80 ? 'hot bold' : 'muted'"
 ```
 
-**Lay it out however you like.** Each `[[line]]` is a row, with left, center and right sides.
+**Lay out a row in full.** Each `[[line]]` is a row with left, center and right sides.
+Any `[[line]]` replaces `[layout]`.
 
 ```toml
 [[line]]
-left = ["model", "dir", "git"]
+left = ["model", "user", "git"]
 right = ["ctx", "h5"]
 
 [[line]]
 if = "todo.total"
 left = "{todo.done}/{todo.total} <muted>{todo.current}</>"
-```
-
-**Add a row without touching the layout.** `[[append_line]]` sits under any theme, so it
-stays when you switch. This one shows who and where you are.
-
-```toml
-[[append_line]]
-left = ["user", "path", "session"]
-right = ["ctx_tokens", "cache", "duration", "version", "clock"]
 ```
 
 **Show anything a command can print.** Commands run in a background process, so a slow
@@ -96,17 +118,15 @@ format = "k8s {source.kube.value}"
 style = "= contains(source.kube.value, 'prod') ? 'hot bold' : 'muted'"
 ```
 
-**Let the whole bar react to what is happening.** A rule can override any part of the
-config, up to and including the theme.
+**Let the bar react to what is happening.** A rule can override any part of the config.
 
 ```toml
 [[when]]
-name = "take over when a limit is close"
+name = "show the forecasts when a limit is close"
 if = "ctx.pct >= 85 || limit.h5.pct >= 85"
-theme = "cockpit"
+[when.layout]
+rows = [["h5", "d7", "ctx"], ["h5_forecast", "d7_forecast", "ctx_eta", "burn"]]
 ```
-
-![A single rule turns the quiet graphite bar into the cockpit panel at 85 percent](assets/reactive.gif)
 
 Rules can read the branch, project, model, terminal width, time of day, or the output of
 any source. There are ready-to-copy configs in [`examples/`](examples): protecting `main`,
@@ -120,9 +140,9 @@ expression language and each variable. A test keeps it in step with the code.
 When a line doesn't fit, limit-bar gives things up gradually: modules switch to their short
 format one at a time, then the least important ones leave, and text is only cut as a last
 resort. You set the order with `priority`, and a rule can switch to a different layout at
-any width. `dusk` does this, folding its frame into a single line below 72 columns.
+any width.
 
-![dusk and cockpit at four terminal widths](assets/responsive.png)
+![The bar at four terminal widths](assets/responsive.png)
 
 ## It tells you what it is doing
 
@@ -150,8 +170,10 @@ Beyond the numbers Claude Code provides, limit-bar works out:
   holds, and `limit.h5.hit_in` is how long until you hit 100%.
 - **Time until context is full.** `ctx.eta` comes from your recent growth, and restarts
   after `/compact` instead of treating the drop as negative use.
-- **History.** `history.ctx`, which `spark` turns into a sparkline. Cost is available as
-  `cost.usd` and `cost.per_hour`, but neither theme shows it unless you add the `cost` module.
+- **History.** `history.ctx`, which `spark` turns into a sparkline.
+
+The bar shows no dollar amounts. `cost`, `cost_rate` and `spend` modules exist if you add
+them by hand, but they are not in the default rows or the editor.
 
 These are straight-line estimates. Real usage comes in bursts, so treat them as a guide.
 Projections stay off for the first 15% of a window, when there is too little to go on.
@@ -164,12 +186,10 @@ A status line runs constantly, so it should be boring to trust.
   daemon. The only outside programs it starts are `git` and the commands you configure.
 - **Projects can't run code.** A repo's `.limit-bar.toml` is ignored until you run
   `limit-bar trust`, which lists the commands it would run. Editing the file revokes approval.
-- **Themes can't run code.** The loader removes `[source]` from them, so a theme from a
-  stranger is safe to try.
 - **Hostile text stays text.** Terminal control codes are stripped from branch names,
   session names and command output. Link addresses are limited to `http`, `https` and `file`.
-- **Git stays read-only.** It runs with `core.fsmonitor` forced off, so a cloned repo's
-  config can't use it to start a program.
+- **Git stays read-only.** It runs with `core.fsmonitor`, external diff drivers and
+  signature checks off, so a cloned repo's config can't use it to start a program.
 - **No eval.** Expressions go through a small parser that can only read variables.
 
 ## Speed
@@ -178,17 +198,21 @@ About 50 ms per update as Claude Code runs it, nearly all of that Node starting 
 under 1 ms for the render itself. Measured on an Apple Silicon MacBook with 8 GB of RAM;
 run `limit-bar bench` for your own numbers. Claude Code waits for 300 ms of quiet between
 updates, so this is well inside the budget. Git, history and transcript reads only happen
-if your layout uses them.
+if your layout uses them, and the transcript is read incrementally, so long sessions cost
+no more than short ones.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `limit-bar install [--theme NAME] [--refresh SECONDS] [--dry-run]` | Set up Claude Code. Default refresh is 5 seconds |
+| `limit-bar install [--refresh SECONDS] [--no-agent-rows] [--dry-run]` | Set up Claude Code. Default refresh is 5 seconds |
 | `limit-bar uninstall [--purge]` | Restore your previous status line |
-| `limit-bar themes` / `use NAME` | List or switch themes |
-| `limit-bar preview [NAME\|all] [--state fresh\|working\|danger] [--cols N]` | Try a theme on sample data |
-| `limit-bar theme new NAME [--from BASE]` | Copy a theme into your config to edit |
+| `limit-bar customize` | Live editor with a preview |
+| `limit-bar modules [FILTER]` / `rows` | What you can show, and the current layout |
+| `limit-bar show` / `hide` / `move NAME` | Change the rows |
+| `limit-bar set [KEY VALUE]` / `color [NAME #HEX]` | Change settings and colours |
+| `limit-bar reset` | Back to the defaults |
+| `limit-bar preview [--state fresh\|working\|danger] [--cols N]` | Try it on sample data |
 | `limit-bar init` | Write a commented starter config |
 | `limit-bar validate` / `explain` / `fields` / `doctor` / `bench` | Inspect and debug |
 | `limit-bar trust` / `untrust` | Approve or revoke this project's config |
@@ -198,8 +222,11 @@ if your layout uses them.
 - It needs Node. A native binary would start faster, at the cost of a build per platform
   and an install that is harder to read.
 - Windows is untested. CI runs on Linux and macOS.
-- `tool.*` and `todo.*` read the session transcript, whose format is not a public contract.
-  If it changes, they go empty rather than break.
+- `tool.*`, `todo.*`, `agents.*` and `stats.*` read the session transcript, whose format
+  is not a public contract. If it changes, they go empty rather than break.
+- `todo.*` only sees the `TodoWrite` tool, so it stays empty in sessions that do not use it.
+- `speed.output` reads low after subagents have run, because Claude Code's model time
+  includes theirs while the session's token count does not.
 - Status lines hide while Claude Code shows permission prompts and some menus. That comes
   from Claude Code itself.
 

@@ -4,9 +4,9 @@
 
 import os from 'node:os';
 import path from 'node:path';
-import { readGit } from './git.js';
+import { readGit, readGitExtra } from './git.js';
 import { openHistory } from './history.js';
-import { readActivity } from './activity.js';
+import { readActivity, emptyStats } from './activity.js';
 import { readSource } from './sources.js';
 import { evaluate } from './expr.js';
 
@@ -40,16 +40,25 @@ function shortPath(p, home) {
   return parts.map((seg, i) => (i === parts.length - 1 || i === 0 ? seg : seg.slice(0, 1))).join('/');
 }
 
-function windowInfo(w, windowSeconds, now) {
+function clockText(d, format) {
+  const m = String(d.getMinutes()).padStart(2, '0');
+  if (format === '12h') return `${d.getHours() % 12 || 12}:${m}${d.getHours() < 12 ? 'am' : 'pm'}`;
+  return `${String(d.getHours()).padStart(2, '0')}:${m}`;
+}
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function windowInfo(w, windowSeconds, now, clock) {
   if (!w || typeof w !== 'object') return null;
   const pct = toNum(w.used_percentage);
   const resets = toNum(w.resets_at);
   if (resets !== null && resets <= now) return null;
   const left = resets !== null ? resets - now : null;
-  const out = { pct, resets_at: resets, left, reset_clock: null, elapsed: null, projected: null, pace: null, will_hit: false, hit_in: null };
+  const out = { pct, resets_at: resets, left, reset_clock: null, reset_day: null, elapsed: null, projected: null, pace: null, will_hit: false, hit_in: null };
   if (resets !== null) {
     const d = new Date(resets * 1000);
-    out.reset_clock = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    out.reset_clock = clockText(d, clock);
+    out.reset_day = `${DAY_NAMES[d.getDay()]} ${out.reset_clock}`;
   }
   if (pct !== null && left !== null && windowSeconds) {
     const elapsed = clamp(windowSeconds - left, 0, windowSeconds);
@@ -74,6 +83,7 @@ const PERIOD_SECONDS = { daily: 86400, weekly: 604800, monthly: 2592000 };
 export function buildScope(input, rc, opts = {}) {
   const raw = input && typeof input === 'object' ? input : {};
   const env = opts.env ?? process.env;
+  const settings = rc?.cfg?.settings ?? {};
   const now = opts.now ?? (env.LIMITBAR_NOW ? Number(env.LIMITBAR_NOW) : Date.now() / 1000);
   const home = opts.home ?? os.homedir();
   const overrides = opts.overrides ?? {};
@@ -134,6 +144,7 @@ export function buildScope(input, rc, opts = {}) {
     fresh: usage ? toNum(usage.input_tokens) : null,
     cache_read: usage ? toNum(usage.cache_read_input_tokens) : null,
     cache_write: usage ? toNum(usage.cache_creation_input_tokens) : null,
+    over_200k: raw.exceeds_200k_tokens === true,
   };
 
   // Cost and session clocks, in seconds.
@@ -151,12 +162,12 @@ export function buildScope(input, rc, opts = {}) {
   // Rate limits, plus a stateless projection from how much of the window is gone.
   const rl = raw.rate_limits ?? {};
   scope.limit = {
-    h5: windowInfo(rl.five_hour, 5 * 3600, now),
-    d7: windowInfo(rl.seven_day, 7 * 86400, now),
+    h5: windowInfo(rl.five_hour, 5 * 3600, now, settings.clock),
+    d7: windowInfo(rl.seven_day, 7 * 86400, now, settings.clock),
     spend: null,
   };
   if (rl.spend_limit && typeof rl.spend_limit === 'object') {
-    const s = windowInfo(rl.spend_limit, PERIOD_SECONDS[rl.spend_limit.period] ?? null, now);
+    const s = windowInfo(rl.spend_limit, PERIOD_SECONDS[rl.spend_limit.period] ?? null, now, settings.clock);
     if (s) {
       s.usd = toNum(rl.spend_limit.used_usd);
       s.max = toNum(rl.spend_limit.limit_usd);
@@ -205,19 +216,20 @@ export function buildScope(input, rc, opts = {}) {
     weekday: DAYS[d.getDay()],
     weekend: d.getDay() === 0 || d.getDay() === 6,
     date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-    clock: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+    clock: clockText(d, settings.clock),
   };
 
   Object.defineProperty(scope, 'env', { value: { ...env }, enumerable: false });
 
   // Who and where. Only looked up when a layout asks for it.
   lazy(scope, 'user', () => {
-    if (overrides.user) return overrides.user;
+    const shown = typeof settings.username === 'string' && settings.username ? settings.username : null;
+    if (overrides.user) return shown ? { ...overrides.user, name: shown } : overrides.user;
     let name = env.USER ?? env.LOGNAME ?? env.USERNAME ?? null;
     try { name = os.userInfo().username; } catch { /* keep the env value */ }
     let host = null;
     try { host = os.hostname(); } catch { /* stays null */ }
-    return { name, host: host ? host.replace(/\.(local|lan|home)$/i, '') : null, home };
+    return { name: shown ?? name, host: host ? host.replace(/\.(local|lan|home)$/i, '') : null, home };
   });
   lazy(scope, 'system', () => {
     if (overrides.system) return overrides.system;
@@ -233,8 +245,14 @@ export function buildScope(input, rc, opts = {}) {
   });
 
   lazy(scope, 'git', () => {
-    if (overrides.git !== undefined) return overrides.git ?? emptyGit();
-    return readGit(cwd, { ttl: rc?.cfg?.settings?.git_ttl ?? 2, now, cacheDir: rc?.cacheDir }) ?? emptyGit();
+    if (overrides.git !== undefined) return withCommitAge({ ...emptyGit(), ...overrides.git }, now);
+    const g = readGit(cwd, { ttl: settings.git_ttl ?? 2, now, cacheDir: rc?.cacheDir }) ?? emptyGit();
+    if (!g.repo) return g;
+    let extra;
+    const more = () => { extra ??= readGitExtra(cwd, { now, cacheDir: rc?.cacheDir }); return extra; };
+    for (const key of ['op', 'stash', 'added', 'removed', 'tag', 'last_commit_at']) lazy(g, key, () => more()[key]);
+    lazy(g, 'age', () => (more().last_commit_at ? Math.max(0, now - more().last_commit_at) : null));
+    return g;
   });
 
   const historyHandle = () => {
@@ -248,11 +266,20 @@ export function buildScope(input, rc, opts = {}) {
   lazy(scope.ctx, 'eta', () => hist().eta?.ctx ?? null);
   lazy(scope.cost, 'per_hour', () => hist().rate?.cost_per_hour ?? scope.cost.avg_per_hour);
 
-  const activity = () => overrides.activity ?? readActivity(raw.transcript_path);
+  const activity = () => overrides.activity ?? readActivity(raw.transcript_path, { now, cacheDir: rc?.cacheDir });
   let activityMemo;
   const act = () => { activityMemo ??= activity(); return activityMemo; };
   lazy(scope, 'tool', () => act().tool);
   lazy(scope, 'todo', () => act().todo);
+  lazy(scope, 'agents', () => act().agents ?? { running: 0, background: 0, spawned: 0 });
+  lazy(scope, 'stats', () => act().stats ?? emptyStats());
+  // context_window.total_output_tokens only covers the latest message, so the session
+  // total comes from the transcript.
+  scope.speed = {};
+  lazy(scope.speed, 'output', () => {
+    const out = act().stats?.output_tokens;
+    return out && scope.cost.api >= 1 ? out / scope.cost.api : null;
+  });
 
   // [source.*] and [var.*] come from config, and a rule can swap the config, so
   // they are rebuilt whenever that happens.
@@ -286,7 +313,11 @@ export function buildScope(input, rc, opts = {}) {
 }
 
 function emptyGit() {
-  return { repo: false, branch: null, detached: false, oid: null, upstream: null, ahead: 0, behind: 0, staged: 0, modified: 0, untracked: 0, conflicts: 0, changed: 0, dirty: false, clean: false };
+  return { repo: false, branch: null, detached: false, oid: null, upstream: null, ahead: 0, behind: 0, staged: 0, modified: 0, untracked: 0, conflicts: 0, changed: 0, dirty: false, clean: false, op: null, stash: 0, added: 0, removed: 0, tag: null, last_commit_at: null, age: null };
+}
+
+function withCommitAge(g, now) {
+  return { ...g, age: g.last_commit_at ? Math.max(0, now - g.last_commit_at) : null };
 }
 
 export function glyphScope(cfg, charset) {

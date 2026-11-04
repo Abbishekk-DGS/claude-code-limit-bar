@@ -46,7 +46,7 @@ export const FIXTURES = {
     overrides: {
       git: { repo: true, branch: 'main', detached: false, oid: 'a1b2c3d', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, modified: 0, untracked: 0, conflicts: 0, changed: 0, dirty: false, clean: true },
       history: { series: { ctx: [], cost: [], h5: [], d7: [], tokens: [] }, rate: { ctx_per_min: null, cost_per_hour: null, h5_per_hour: null, tokens_per_min: null }, eta: { ctx: null } },
-      activity: { tool: { active: null, target: null, running: 0, agents: 0 }, todo: { done: 0, total: 0, current: null, pct: null } },
+      activity: { tool: { active: null, target: null, running: 0, agents: 0, elapsed: null }, todo: { done: 0, total: 0, current: null, pct: null }, agents: { running: 0, background: 0, spawned: 0 }, stats: { turns: 0, messages: 0, tools: 0, top_tool: null, top_tool_count: 0, compactions: 0, last_turn: null, skills: 0, last_skill: null, mcp: 0, agents_spawned: 0, output_tokens: 0 } },
     },
   }),
   working: (now) => ({
@@ -58,9 +58,9 @@ export const FIXTURES = {
       pr: { number: 1234, url: 'https://github.com/acme/orbit-api/pull/1234', review_state: 'pending' },
     }),
     overrides: {
-      git: { repo: true, branch: 'feat/payments', detached: false, oid: 'a1b2c3d', upstream: 'origin/feat/payments', ahead: 2, behind: 0, staged: 1, modified: 3, untracked: 1, conflicts: 0, changed: 5, dirty: true, clean: false },
+      git: { repo: true, branch: 'feat/payments', detached: false, oid: 'a1b2c3d', upstream: 'origin/feat/payments', ahead: 2, behind: 0, staged: 1, modified: 3, untracked: 1, conflicts: 0, changed: 5, dirty: true, clean: false, op: null, stash: 1, added: 82, removed: 14, tag: null, last_commit_at: now - 2400 },
       history: { series: { ctx: ramp(12, 42), cost: ramp(0.2, 1.84), h5: ramp(14, 23.5), d7: ramp(39, 41.2), tokens: [] }, rate: { ctx_per_min: 0.8, cost_per_hour: 2.35, h5_per_hour: 5.2, tokens_per_min: 1600 }, eta: { ctx: 58 * 60 } },
-      activity: { tool: { active: 'Edit', target: 'charge.ts', running: 1, agents: 0 }, todo: { done: 3, total: 7, current: 'Wire retry policy', pct: 42.8 } },
+      activity: { tool: { active: 'Edit', target: 'charge.ts', running: 2, agents: 1, elapsed: 4 }, todo: { done: 3, total: 7, current: 'Wire retry policy', pct: 42.8 }, agents: { running: 1, background: 2, spawned: 5 }, stats: { turns: 14, messages: 96, tools: 212, top_tool: 'Edit', top_tool_count: 61, compactions: 1, last_turn: 39, skills: 2, last_skill: 'frontend-design', mcp: 1, agents_spawned: 5, output_tokens: 46200 } },
     },
   }),
   danger: (now) => ({
@@ -71,9 +71,9 @@ export const FIXTURES = {
       rate_limits: { five_hour: { used_percentage: 88, resets_at: now + 1.4 * HOUR }, seven_day: { used_percentage: 76, resets_at: now + 2 * DAY } },
     }),
     overrides: {
-      git: { repo: true, branch: 'hotfix/ledger-race', detached: false, oid: 'f00dcaf', upstream: 'origin/hotfix/ledger-race', ahead: 0, behind: 3, staged: 0, modified: 11, untracked: 4, conflicts: 1, changed: 16, dirty: true, clean: false },
+      git: { repo: true, branch: 'hotfix/ledger-race', detached: false, oid: 'f00dcaf', upstream: 'origin/hotfix/ledger-race', ahead: 0, behind: 3, staged: 0, modified: 11, untracked: 4, conflicts: 1, changed: 16, dirty: true, clean: false, op: 'rebase', stash: 3, added: 640, removed: 215, tag: 'v2.4.0', last_commit_at: now - 86400 },
       history: { series: { ctx: ramp(34, 91), cost: ramp(9, 18.42), h5: ramp(60, 88), d7: ramp(70, 76), tokens: [] }, rate: { ctx_per_min: 2.9, cost_per_hour: 12.6, h5_per_hour: 21, tokens_per_min: 5800 }, eta: { ctx: 3 * 60 + 6 } },
-      activity: { tool: { active: 'Bash', target: 'npm test', running: 2, agents: 1 }, todo: { done: 6, total: 7, current: 'Fix ledger race', pct: 85.7 } },
+      activity: { tool: { active: 'Bash', target: 'npm test', running: 2, agents: 1, elapsed: 74 }, todo: { done: 6, total: 7, current: 'Fix ledger race', pct: 85.7 }, agents: { running: 1, background: 0, spawned: 9 }, stats: { turns: 61, messages: 412, tools: 934, top_tool: 'Bash', top_tool_count: 288, compactions: 3, last_turn: 212, skills: 4, last_skill: 'code-review', mcp: 3, agents_spawned: 9, output_tokens: 100100 } },
     },
   }),
 };

@@ -12,7 +12,7 @@ bar     = "block"     # default gauge from [bars]
 git_ttl = 2           # seconds a git status result is reused
 ctx_limit = 100       # ctx.eta counts down to this percentage
 links   = true        # clickable OSC 8 links
-notices = true        # show "run limit-bar trust" hints
+notices = true        # show setup hints in the bar
 
 [palette]
 text  = "#d8dee4"
@@ -80,115 +80,125 @@ empty_style = "faint"
 
 # ---- identity ---------------------------------------------------------------
 [module.model]
-format = "{model.name}"
-compact = "{model.short}"
-style = "model"
+group = "session"
+about = "Model name, with tokens used out of the context window"
+format = "<grad:cyan,pink bold>{model.name}</>{if ctx.tokens && ctx.size}<=ctx.pct >= 60 ? severity(ctx.pct) : 'muted'>({ctx.tokens | tokens}/{ctx.size | tokens})</>{end}"
+compact = "<grad:cyan,pink bold>{model.name}</>"
+style = ""
 priority = 90
 
 [module.effort]
+group = "session"
+about = "Reasoning effort level"
 if = "effort.level"
-format = "{effort.level}"
-style = "muted"
-priority = 20
+format = "<pink>{g.gear}</> <muted>effort:</>{effort.level}"
+style = ""
+priority = 50
+
+[module.think]
+group = "session"
+about = "Extended thinking on or off"
+format = "<muted>think:</>{if thinking}<lime>on</>{else}off{end}"
+style = ""
+priority = 40
 
 [module.fast]
-if = "fast"
-format = "fast"
-style = "accent"
+group = "session"
+about = "Fast mode on or off"
+format = "<muted>fast:</>{if fast}<lime>on</>{else}off{end}"
+style = ""
 priority = 30
 
-[module.thinking]
-if = "thinking"
-format = "thinking"
-style = "muted"
-priority = 10
-
-[module.output_style]
-if = "output_style && output_style != 'default'"
-format = "{output_style}"
-style = "muted"
-priority = 10
+[module.style]
+group = "session"
+about = "Output style"
+format = "<muted>style:</>{output_style | default:'default'}"
+style = ""
+priority = 20
 
 [module.agent]
+group = "session"
+about = "Agent the session runs as (--agent)"
 if = "agent.name"
 format = "{g.agent} {agent.name}"
-style = "accent"
+style = "cyan"
 priority = 40
 
 [module.vim]
+group = "session"
+about = "Vim mode"
 if = "vim.mode"
 format = "{vim.mode}"
-style = "= vim.mode == 'INSERT' ? 'ok bold' : 'accent bold'"
+style = "= vim.mode == 'INSERT' ? 'lime bold' : 'cyan bold'"
 priority = 60
 
 [module.version]
+group = "session"
+about = "Claude Code version"
 if = "version"
 format = "v{version}"
-style = "faint"
+style = "muted"
 priority = 5
 
 [module.session]
+group = "session"
+about = "Session name. It can mention a project, so it is off by default"
 if = "session.name"
 format = "{session.name | trunc:24}"
 style = "muted"
 priority = 15
 
+[module.session_id]
+group = "session"
+about = "First characters of the session id"
+if = "session.id"
+format = "{session.id | trunc:9}"
+style = "muted"
+priority = 5
+
 # ---- who and where ----------------------------------------------------------
 [module.user]
+group = "place"
+about = "Your username. Change what it says with: set username NAME"
 if = "user.name"
-format = "{user.name}"
-style = "muted"
-priority = 22
+format = "<pink>{g.into}</> <grad:pink,violet bold>{user.name}</>"
+style = ""
+priority = 90
 
 [module.host]
+group = "place"
+about = "Machine name"
 if = "user.host"
 format = "{user.host | trunc:24}"
 style = "muted"
 priority = 12
 
-[module.user_host]
-if = "user.name"
-format = "{user.name}{if user.host}<faint>@</>{user.host | trunc:24}{end}"
-compact = "{user.name}"
-style = "muted"
-priority = 22
-
-[module.os]
-format = "{system.os} {system.arch}"
-compact = "{system.os}"
-style = "muted"
-priority = 8
-
-[module.shell]
-if = "system.shell"
-format = "{system.shell}"
-style = "muted"
-priority = 8
-
-[module.load]
-format = "load {system.load | fixed:1}"
-style = "= system.load > system.cores ? 'warn' : 'muted'"
-priority = 8
-
-# ---- place ------------------------------------------------------------------
 [module.dir]
+group = "place"
+about = "Current folder name"
 format = "{dir.name}"
 style = "text"
 priority = 70
 
 [module.path]
+group = "place"
+about = "Current folder path, shortened"
 format = "{dir.short}"
 compact = "{dir.name}"
 style = "text"
 priority = 70
 
 [module.project]
+group = "place"
+about = "Project folder, plus the subfolder you are in"
 format = "{project.name}{if project.is_subdir}<muted>/{project.relative}</>{end}"
 compact = "{project.name}"
 style = "text"
 priority = 70
 
 [module.repo]
+group = "place"
+about = "Remote owner/name, clickable"
 if = "repo.slug"
 format = "{repo.slug}"
 compact = "{repo.name}"
@@ -196,156 +206,503 @@ link = "{repo.url}"
 style = "muted"
 priority = 25
 
-[module.worktree]
-if = "worktree.name"
-format = "{g.worktree} {worktree.name}"
-style = "accent"
-priority = 35
+[module.added_dirs]
+group = "place"
+about = "Folders added with /add-dir"
+if = "project.added_dirs"
+format = "+{project.added_dirs} dirs"
+style = "muted"
+priority = 10
+
+[module.os]
+group = "place"
+about = "Operating system and architecture"
+format = "{system.os} {system.arch}"
+compact = "{system.os}"
+style = "muted"
+priority = 8
+
+[module.shell]
+group = "place"
+about = "Your shell"
+if = "system.shell"
+format = "{system.shell}"
+style = "muted"
+priority = 8
+
+[module.load]
+group = "place"
+about = "System load. Turns yellow above your core count"
+format = "load {system.load | fixed:1}"
+style = "= system.load > system.cores ? 'warn' : 'muted'"
+priority = 8
+
+[module.ssh]
+group = "place"
+about = "Shown while connected over SSH"
+if = "term.ssh"
+format = "ssh"
+style = "warn bold"
+priority = 45
+
+[module.tmux]
+group = "place"
+about = "Shown while inside tmux"
+if = "term.tmux"
+format = "tmux"
+style = "muted"
+priority = 10
+
+# ---- git --------------------------------------------------------------------
+[module.git]
+group = "git"
+about = "Branch, with * when there are changes"
+format = "{if git.repo}<lime>{g.branch} {git.branch ?? git.oid | trunc:28}</>{if git.dirty}<warn>{g.dirty}</>{end}{else}<muted italic>(no git)</>{end}"
+compact = "{if git.repo}<lime>{git.branch ?? git.oid | trunc:16}</>{if git.dirty}<warn>{g.dirty}</>{end}{end}"
+style = ""
+priority = 80
+
+[module.git_sync]
+group = "git"
+about = "Commits ahead of and behind upstream"
+if = "git.ahead || git.behind"
+format = "{if git.ahead}<cyan>{g.ahead}{git.ahead}</>{end}{if git.behind}<pink>{g.behind}{git.behind}</>{end}"
+style = ""
+priority = 55
+
+[module.git_changes]
+group = "git"
+about = "Staged, modified, untracked and conflicted files"
+if = "git.dirty"
+format = "{if git.conflicts}<hot bold>!{git.conflicts}</> {end}{if git.staged}<lime>+{git.staged}</> {end}{if git.modified}<warn>~{git.modified}</> {end}{if git.untracked}<muted>?{git.untracked}</>{end}"
+style = ""
+priority = 50
+
+[module.git_op]
+group = "git"
+about = "Merge, rebase, cherry-pick, revert or bisect in progress"
+if = "git.op"
+format = "{git.op | upper}"
+style = "hot bold"
+priority = 85
+
+[module.git_stash]
+group = "git"
+about = "Number of stashes"
+if = "git.stash"
+format = "{g.stash}{git.stash}"
+style = "violet"
+priority = 15
+
+[module.git_diff]
+group = "git"
+about = "Lines added and removed in the working tree"
+if = "git.added || git.removed"
+format = "<add>+{git.added}</> <del>-{git.removed}</>"
+style = ""
+priority = 25
+
+[module.git_age]
+group = "git"
+about = "Time since the last commit"
+if = "git.age != null"
+format = "{git.age | dur:1} ago"
+style = "muted"
+priority = 15
+
+[module.git_tag]
+group = "git"
+about = "Tag on the current commit"
+if = "git.tag"
+format = "{g.tag} {git.tag | trunc:20}"
+style = "violet"
+priority = 15
+
+[module.git_sha]
+group = "git"
+about = "Short commit id"
+if = "git.oid"
+format = "{git.oid}"
+style = "muted"
+priority = 10
+
+[module.upstream]
+group = "git"
+about = "Upstream branch"
+if = "git.upstream"
+format = "{git.upstream | trunc:28}"
+style = "muted"
+priority = 10
 
 [module.pr]
+group = "git"
+about = "Open pull request and its review state, clickable"
 if = "pr.number"
 format = "{g.pr} #{pr.number}{if pr.state} <muted>{pr.state}</>{end}"
 compact = "#{pr.number}"
 link = "{pr.url}"
-style = "accent"
+style = "cyan"
 priority = 45
 
-# ---- git --------------------------------------------------------------------
-[module.git]
-if = "git.branch"
-format = "{g.branch} {git.branch | trunc:28}{if git.dirty}<warn>{g.dirty}</>{end}"
-compact = "{git.branch | trunc:16}{if git.dirty}<warn>{g.dirty}</>{end}"
-style = "accent"
-priority = 65
-
-[module.git_changes]
-if = "git.dirty"
-format = "{if git.staged}<ok>+{git.staged}</> {end}{if git.modified}<warn>~{git.modified}</> {end}{if git.untracked}<muted>?{git.untracked}</>{end}"
-style = "muted"
-priority = 30
-
-[module.git_sync]
-if = "git.ahead || git.behind"
-format = "{if git.ahead}{g.ahead}{git.ahead}{end}{if git.behind}{g.behind}{git.behind}{end}"
-style = "muted"
-priority = 30
+[module.worktree]
+group = "git"
+about = "Linked worktree name"
+if = "worktree.name"
+format = "{g.worktree} {worktree.name}"
+style = "cyan"
+priority = 35
 
 [module.lines]
+group = "git"
+about = "Lines added and removed this session"
 if = "cost.lines"
 format = "<add>+{cost.added}</> <del>-{cost.removed}</>"
+style = ""
 priority = 25
 
 # ---- context window ---------------------------------------------------------
 [module.ctx]
+group = "context"
+about = "Context window gauge"
 if = "ctx.pct != null"
-format = "ctx {ctx.pct | bar:10} <=severity(ctx.pct)>{ctx.pct | round}%</>"
+format = "ctx{ctx.pct | bar}"
 compact = "ctx <=severity(ctx.pct)>{ctx.pct | round}%</>"
-style = "muted"
+style = ""
 priority = 85
 
 [module.ctx_tokens]
+group = "context"
+about = "Tokens used out of the window"
 if = "ctx.tokens && ctx.size"
 format = "{ctx.tokens | tokens}/{ctx.size | tokens}"
 style = "muted"
 priority = 15
 
+[module.ctx_left]
+group = "context"
+about = "Tokens left in the window"
+if = "ctx.tokens_left != null"
+format = "{ctx.tokens_left | tokens} left"
+style = "muted"
+priority = 15
+
 [module.ctx_trend]
+group = "context"
+about = "Sparkline of context use"
 if = "len(history.ctx) >= 2"
 format = "{history.ctx | spark:12}"
-style = "muted"
+style = "violet"
 priority = 12
 
 [module.ctx_eta]
+group = "context"
+about = "Estimated time until the window is full"
 if = "ctx.eta"
 format = "full in {ctx.eta | dur:1}"
 compact = "{ctx.eta | dur:1}"
 style = "= ctx.eta < 900 ? 'hot' : ctx.eta < 3600 ? 'warn' : 'muted'"
 priority = 40
 
+[module.ctx_rate]
+group = "context"
+about = "How fast context is filling, percent per minute"
+if = "rate.ctx_per_min"
+format = "{rate.ctx_per_min | fixed:1}%/m"
+style = "muted"
+priority = 12
+
+[module.big_ctx]
+group = "context"
+about = "Warns when the session has passed 200k tokens"
+if = "ctx.over_200k"
+format = "{g.warn} over 200k"
+style = "warn bold"
+priority = 60
+
+[module.compactions]
+group = "context"
+about = "Times this session has been compacted"
+if = "stats.compactions"
+format = "{g.pack}{stats.compactions}"
+style = "violet"
+priority = 30
+
 # ---- rate limits ------------------------------------------------------------
 [module.h5]
+group = "limits"
+about = "5-hour limit gauge, time to reset, and where you are heading"
 if = "limit.h5.pct != null"
-format = "5h <=severity(limit.h5.pct)>{limit.h5.pct | round}%</>{if limit.h5.left} <muted>{limit.h5.left | dur}</>{end}"
-compact = "5h <=severity(limit.h5.pct)>{limit.h5.pct | round}%</>"
-style = "muted"
-priority = 75
-
-# Only speaks up once usage is high enough for a forecast to be worth acting on.
-[module.h5_forecast]
-if = "limit.h5.hit_in && limit.h5.pct >= 50"
-format = "{g.warn} limit in {limit.h5.hit_in | dur}"
-compact = "{g.warn} {limit.h5.hit_in | dur}"
-style = "hot"
+format = "5h{limit.h5.pct | bar}{if limit.h5.left}{g.alarm}<=severity(limit.h5.pct)>{limit.h5.left | dur:2:'pad'}</>{end} {if limit.h5.projected != null}<=var.h5_color>{g.to}{limit.h5.projected | round}%</>{else}<muted>{g.to}--</>{end}"
+compact = "5h <=severity(limit.h5.pct)>{limit.h5.pct | round}%</>{if limit.h5.left} <muted>{limit.h5.left | dur:2:'pad'}</>{end}"
+style = ""
 priority = 80
 
 [module.d7]
+group = "limits"
+about = "7-day limit gauge, time to reset, and where you are heading"
 if = "limit.d7.pct != null"
-format = "7d <=severity(limit.d7.pct)>{limit.d7.pct | round}%</>"
-style = "muted"
-priority = 55
-
-[module.spend]
-if = "limit.spend.pct != null"
-format = "{if limit.spend.usd != null}{limit.spend.usd | money}/{limit.spend.max | money:0}{else}spend{end} <=severity(limit.spend.pct)>{limit.spend.pct | round}%</>"
-compact = "<=severity(limit.spend.pct)>{limit.spend.pct | round}%</>"
-style = "muted"
-priority = 55
-
-# ---- cost and time ----------------------------------------------------------
-[module.cost]
-if = "cost.usd != null"
-format = "{cost.usd | money}"
-style = "text"
+format = "7d{limit.d7.pct | bar}{if limit.d7.left}{g.alarm}<=severity(limit.d7.pct)>{limit.d7.left | dur:2:'pad'}</>{end} {if limit.d7.projected != null}<=var.d7_color>{g.to}{limit.d7.projected | round}%</>{else}<muted>{g.to}--</>{end}"
+compact = "7d <=severity(limit.d7.pct)>{limit.d7.pct | round}%</>{if limit.d7.left} <muted>{limit.d7.left | dur:2:'pad'}</>{end}"
+style = ""
 priority = 60
 
-[module.cost_rate]
-if = "cost.per_hour"
-format = "{cost.per_hour | money}/h"
+# Only speaks up once usage is high enough for a forecast to be worth acting on.
+[module.h5_forecast]
+group = "limits"
+about = "Warns when you will hit the 5-hour limit before it resets"
+if = "limit.h5.hit_in && limit.h5.pct >= 50"
+format = "{g.warn} 5h limit in {limit.h5.hit_in | dur}"
+compact = "{g.warn} {limit.h5.hit_in | dur}"
+style = "hot bold"
+priority = 82
+
+[module.d7_forecast]
+group = "limits"
+about = "Warns when you will hit the 7-day limit before it resets"
+if = "limit.d7.hit_in && limit.d7.pct >= 50"
+format = "{g.warn} 7d limit in {limit.d7.hit_in | dur}"
+compact = "{g.warn} {limit.d7.hit_in | dur}"
+style = "hot bold"
+priority = 62
+
+[module.h5_reset]
+group = "limits"
+about = "Clock time the 5-hour limit resets"
+if = "limit.h5.reset_clock"
+format = "5h resets {limit.h5.reset_clock}"
+compact = "{limit.h5.reset_clock}"
 style = "muted"
 priority = 20
 
-[module.duration]
-if = "cost.duration"
-format = "{cost.duration | dur}"
+[module.d7_reset]
+group = "limits"
+about = "Day and time the 7-day limit resets"
+if = "limit.d7.reset_day"
+format = "7d resets {limit.d7.reset_day}"
+compact = "{limit.d7.reset_day}"
 style = "muted"
 priority = 20
+
+[module.h5_rate]
+group = "limits"
+about = "How fast the 5-hour limit is being used, percent per hour"
+if = "rate.h5_per_hour"
+format = "{rate.h5_per_hour | fixed:1}%/h"
+style = "muted"
+priority = 15
+
+[module.h5_trend]
+group = "limits"
+about = "Sparkline of 5-hour limit use"
+if = "len(history.h5) >= 2"
+format = "{history.h5 | spark:12}"
+style = "violet"
+priority = 12
+
+# ---- pace and time ----------------------------------------------------------
+[module.duration]
+group = "pace"
+about = "How long this session has been open"
+if = "cost.duration"
+format = "<muted>up</> {cost.duration | dur}"
+style = "text"
+priority = 25
+
+[module.api_time]
+group = "pace"
+about = "Time spent waiting on the model"
+if = "cost.api"
+format = "<muted>api</> {cost.api | dur}"
+style = "text"
+priority = 12
+
+[module.speed]
+group = "pace"
+about = "Output speed, tokens per second of model time"
+if = "speed.output"
+format = "{speed.output | round} <muted>tok/s</>"
+compact = "{speed.output | round}t/s"
+style = "cyan"
+priority = 18
+
+[module.burn]
+group = "pace"
+about = "Tokens added to context per minute"
+if = "rate.tokens_per_min"
+format = "{rate.tokens_per_min | tokens} <muted>tok/m</>"
+compact = "{rate.tokens_per_min | tokens}/m"
+style = "violet"
+priority = 16
+
+[module.last_turn]
+group = "pace"
+about = "How long the last turn took"
+if = "stats.last_turn"
+format = "<muted>last</> {stats.last_turn | dur}"
+style = "text"
+priority = 14
+
+[module.turns]
+group = "pace"
+about = "Turns completed this session"
+if = "stats.turns"
+format = "{g.turn}{stats.turns}"
+style = "cyan"
+priority = 22
+
+[module.messages]
+group = "pace"
+about = "Messages in the conversation"
+if = "stats.messages"
+format = "{stats.messages} <muted>msgs</>"
+style = "text"
+priority = 14
 
 [module.clock]
+group = "pace"
+about = "Current time. Switch with: set clock 12h"
 format = "{time.clock}"
 style = "muted"
 priority = 10
 
+[module.date]
+group = "pace"
+about = "Today's date"
+format = "{time.date}"
+style = "muted"
+priority = 6
+
 # ---- prompt cache -----------------------------------------------------------
 [module.cache]
-if = "cache.observed"
-format = "cache {if cache.hit != null}{cache.hit | round}%{end}{if cache.warm && cache.left} <muted>{cache.left | clock}</>{end}{if !cache.warm} <warn>cold</>{end}"
-compact = "{if cache.warm}{cache.left | clock}{else}<warn>cold</>{end}"
-style = "muted"
-priority = 35
+group = "cache"
+about = "Prompt cache countdown, or COLD once it has expired"
+if = "cache.known"
+format = "cache {if cache.warm && cache.left}<=cache.left < 60 ? 'hot' : cache.left < 300 ? 'warn' : 'accent'>{cache.left | clock}</>{else}<hot>COLD</>{end}"
+compact = "{if cache.warm && cache.left}<=cache.left < 60 ? 'hot' : cache.left < 300 ? 'warn' : 'accent'>{cache.left | dur:1}</>{else}<hot>COLD</>{end}"
+style = ""
+priority = 40
 
-[module.cache_ttl]
-if = "cache.warm && cache.left"
-format = "{g.cache} {cache.left | clock}"
-style = "= cache.left < 60 ? 'hot' : cache.left < 300 ? 'warn' : 'muted'"
-priority = 35
+[module.cache_hit]
+group = "cache"
+about = "Prompt cache hit rate"
+if = "cache.hit != null"
+format = "<muted>hit</> <=cache.hit < 60 ? 'hot' : cache.hit < 85 ? 'warn' : 'lime'>{cache.hit | round}%</>"
+style = ""
+priority = 20
 
-# ---- activity (read from the end of the transcript) -------------------------
+[module.cache_miss]
+group = "cache"
+about = "Cache misses, and why the last one happened"
+if = "cache.misses"
+format = "<muted>miss</> {cache.misses}{if cache.last_cause} <muted>{cache.last_cause | trunc:24}</>{end}"
+compact = "<muted>miss</> {cache.misses}"
+style = "warn"
+priority = 14
+
+[module.cache_tokens]
+group = "cache"
+about = "Tokens written to the cache, and tokens rewritten after misses"
+if = "cache.written"
+format = "<muted>wrote</> {cache.written | tokens}{if cache.wasted} <muted>redo</> {cache.wasted | tokens}{end}"
+style = "text"
+priority = 10
+
+# ---- activity (read from the session transcript) ----------------------------
 [module.tool]
+group = "activity"
+about = "Tool running right now, with its target and elapsed time"
 if = "tool.active"
-format = "{g.tool} {tool.active}{if tool.target} <muted>{tool.target | trunc:30}</>{end}"
-compact = "{g.tool} {tool.active}"
-style = "accent"
-priority = 30
+format = "<lime>{g.tool}</> {tool.active}{if tool.target} <muted>{tool.target | trunc:30}</>{end}{if tool.elapsed >= 2} <violet>{tool.elapsed | dur}</>{end}"
+compact = "<lime>{g.tool}</> {tool.active}"
+style = "cyan"
+priority = 45
 
 [module.agents]
-if = "tool.agents"
-format = "{g.agent} {tool.agents}"
-style = "accent"
-priority = 30
+group = "activity"
+about = "Subagents running in the foreground and background"
+if = "agents.running || agents.background"
+format = "<pink>{g.agent}</> {agents.running + agents.background} <muted>agent{if agents.running + agents.background != 1}s{end}</>{if agents.background} <muted>({agents.background} bg)</>{end}"
+compact = "<pink>{g.agent}</> {agents.running + agents.background}"
+style = "cyan"
+priority = 44
 
 [module.todo]
+group = "activity"
+about = "Todo progress and the current item"
 if = "todo.total"
-format = "{g.todo} {todo.done}/{todo.total}{if todo.current} <muted>{todo.current | trunc:32}</>{end}"
-compact = "{g.todo} {todo.done}/{todo.total}"
+format = "<violet>{g.todo}</> {todo.done}/{todo.total}{if todo.current} <muted>{todo.current | trunc:32}</>{end}"
+compact = "<violet>{g.todo}</> {todo.done}/{todo.total}"
 style = "text"
-priority = 40
+priority = 42
+
+[module.todo_bar]
+group = "activity"
+about = "Todo progress as a gauge"
+if = "todo.total"
+format = "todo{todo.pct | bar}"
+compact = "todo {todo.pct | round}%"
+style = ""
+priority = 30
+
+[module.tools]
+group = "activity"
+about = "Tool calls this session"
+if = "stats.tools"
+format = "{g.tool}{stats.tools}"
+style = "lime"
+priority = 20
+
+[module.top_tool]
+group = "activity"
+about = "Most used tool this session"
+if = "stats.top_tool"
+format = "<muted>top</> {stats.top_tool} <muted>x{stats.top_tool_count}</>"
+compact = "{stats.top_tool}"
+style = "text"
+priority = 10
+
+[module.skills]
+group = "activity"
+about = "Skills used this session, and the latest one"
+if = "stats.skills"
+format = "<violet>{g.skill}</> {stats.skills}{if stats.last_skill} <muted>{stats.last_skill | trunc:20}</>{end}"
+compact = "<violet>{g.skill}</> {stats.skills}"
+style = "text"
+priority = 18
+
+[module.mcp]
+group = "activity"
+about = "MCP servers called this session"
+if = "stats.mcp"
+format = "{g.mcp} {stats.mcp} <muted>mcp</>"
+style = "text"
+priority = 12
+
+# ---- dollars: never in the default rows or the customiser. Usable by hand. ------
+[module.cost]
+group = "hidden"
+if = "cost.usd != null"
+format = "{cost.usd | money}"
+style = "text"
+priority = 20
+
+[module.cost_rate]
+group = "hidden"
+if = "cost.per_hour"
+format = "{cost.per_hour | money}/h"
+style = "muted"
+priority = 10
+
+[module.spend]
+group = "hidden"
+if = "limit.spend.pct != null"
+format = "{if limit.spend.usd != null}{limit.spend.usd | money}/{limit.spend.max | money:0}{else}spend{end} <=severity(limit.spend.pct)>{limit.spend.pct | round}%</>"
+compact = "<=severity(limit.spend.pct)>{limit.spend.pct | round}%</>"
+style = "muted"
+priority = 20
+
+# One row in the agent panel, per subagent. Variables: task.agent, task.name,
+# task.text, task.status, task.model, task.effort, task.tokens, task.pct,
+# task.elapsed, task.samples.
+[subagent]
+format = "<pink>{g.agent}</> <grad:cyan,pink bold>{task.agent}</> <muted>{task.text | trunc:44}</>{if task.model} <violet>{task.model}</>{end}{if task.elapsed != null} <cyan>{task.elapsed | dur}</>{end}{if len(task.samples) >= 2} <pink>{task.samples | spark:8}</>{end}{if task.tokens} {task.tokens | tokens}{end}{if task.pct != null} <=severity(task.pct)>{task.pct | round}%</>{end}{if task.status != 'running'} <=task.status == 'completed' ? 'lime' : 'hot'>{task.status}</>{end}"

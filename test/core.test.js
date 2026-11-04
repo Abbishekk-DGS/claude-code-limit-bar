@@ -8,13 +8,12 @@ import { parseColor, gradientAt, colorCode, detectDepth } from '../src/color.js'
 import { slope, deriveHistory } from '../src/history.js';
 import { parsePorcelain } from '../src/git.js';
 import { formatDuration, formatTokens } from '../src/template.js';
-import { setThemeInText } from '../src/cli.js';
 import { shapeValue } from '../src/sources.js';
 
 test('toml reads the forms config files use', () => {
   const v = parseToml(`
 # comment
-theme = "dusk" # trailing
+theme = "neon" # trailing
 n = 1_000
 f = 1.5
 b = true
@@ -39,7 +38,7 @@ if = "x"
 [[when.line]]
 left = "z"
 `);
-  assert.equal(v.theme, 'dusk');
+  assert.equal(v.theme, 'neon');
   assert.equal(v.n, 1000);
   assert.deepEqual(v.arr, ['a', 'b', 'c']);
   assert.equal(v.inline.b.c, 'x');
@@ -207,11 +206,6 @@ test('source values are shaped and sanitised', () => {
   assert.deepEqual(shapeValue('a\n\nb\n', 'lines').data, ['a', 'b']);
 });
 
-test('switching theme keeps comments and other settings', () => {
-  const before = '# my config\ntheme = "graphite"   # keep me\n\n[settings]\ntheme = "not this"\n';
-  const after = setThemeInText(before, 'dusk');
-  assert.ok(after.includes('theme = "dusk"   # keep me'));
-  assert.ok(after.includes('theme = "not this"'));
-  assert.ok(after.startsWith('# my config'));
-  assert.ok(setThemeInText('[settings]\nwarn = 1\n', 'dusk').startsWith('theme = "dusk"\n'));
+test('an unborn repo has no commit id', () => {
+  assert.equal(parsePorcelain('# branch.oid (initial)\n# branch.head main\n').oid, null);
 });

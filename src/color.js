@@ -103,10 +103,14 @@ function idx256Rgb(i) {
   return [step(Math.floor(n / 36)), step(Math.floor(n / 6) % 6), step(n % 6)];
 }
 
+const DEPTHS = new Set(['truecolor', '256', '16', 'none']);
+
 export function detectDepth(env, setting = 'auto') {
-  if (setting && setting !== 'auto') return String(setting);
+  // NO_COLOR outranks a config file, but not a one-off LIMITBAR_COLOR.
+  if (DEPTHS.has(env.LIMITBAR_COLOR)) return env.LIMITBAR_COLOR;
   if (env.NO_COLOR !== undefined && env.NO_COLOR !== '') return 'none';
   if (env.FORCE_COLOR === '0') return 'none';
+  if (DEPTHS.has(setting)) return setting;
   const colorterm = (env.COLORTERM || '').toLowerCase();
   if (colorterm === 'truecolor' || colorterm === '24bit') return 'truecolor';
   const prog = env.TERM_PROGRAM || '';

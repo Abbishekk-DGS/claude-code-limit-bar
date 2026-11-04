@@ -1,5 +1,4 @@
 # Plain ASCII and basic colours, for old terminals and remote sessions.
-theme = "graphite"
 
 [settings]
 charset = "ascii"

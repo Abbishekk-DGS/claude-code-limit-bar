@@ -292,7 +292,11 @@ function labelledCells({ bar, rc, pct, w, full, track, fill, emptyGlyph, emptySt
   return cells;
 }
 
-function barRuns(value, rc, width = 10, name) {
+function barRuns(rawValue, rc, width, name) {
+  const s = rc.cfg.settings ?? {};
+  // Gauges read "remaining" instead of "used" with gauge_show = "left".
+  const value = isNum(rawValue) && s.gauge_show === 'left' ? 100 - rawValue : rawValue;
+  width ??= isNum(s.gauge_width) ? s.gauge_width : 10;
   const bars = rc.cfg.bars || {};
   let barName = name ?? rc.cfg.settings?.bar ?? 'block';
   if (rc.charset === 'ascii' && Object.hasOwn(bars, 'ascii')) barName = 'ascii';

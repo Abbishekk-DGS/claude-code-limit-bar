@@ -3,7 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const NOW = 1800000000;
-export const THEMES = ['indigo', 'cyberpunk', 'minecraft', 'neon', 'matrix', 'gameboy', 'graphite', 'cockpit', 'dusk'];
 
 export function sandbox() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'limit-bar-test-'));

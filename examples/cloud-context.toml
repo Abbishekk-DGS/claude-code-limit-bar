@@ -1,6 +1,5 @@
 # Show where your commands will land: Kubernetes context and AWS profile.
 # The kubectl call runs in the background, so a slow cluster never delays the bar.
-theme = "graphite"
 
 [source.kube]
 command = "kubectl config current-context"

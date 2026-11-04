@@ -10,7 +10,7 @@ import { colorCode, detectDepth, gradientAt } from './color.js';
 import { cellWidth, runsWidth, textWidth, truncateRuns } from './width.js';
 import { cacheDir } from './paths.js';
 
-const RULE_META = new Set(['if', 'theme', 'stop', 'name']);
+const RULE_META = new Set(['if', 'stop', 'name']);
 const SAFE_LINK = /^(https?|file):\/\/[^\s]+$/i;
 const CHARSETS = new Set(['nerd', 'unicode', 'ascii']);
 
@@ -42,6 +42,7 @@ function makeContext(cfg, opts) {
       if (rc.memo.has(key)) return rc.memo.get(key);
       const empty = { runs: [], priority: 50, style: {}, empty: true };
       const def = rc.cfg.module?.[name];
+      if (def?.disabled === true) rc.trace.modules[name] = 'off';
       if (!def || stack.has(name) || def.disabled === true) return empty;
       stack.add(name);
       let out = empty;
@@ -69,11 +70,10 @@ function makeContext(cfg, opts) {
   return rc;
 }
 
-function applyRules(rc, layers, envVars) {
+function applyRules(rc) {
   const rules = Array.isArray(rc.cfg.when) ? rc.cfg.when : [];
-  let cfg = rc.cfg;
+  const cfg = rc.cfg;
   let overlay = {};
-  let themeName = cfg.theme;
   for (const rule of rules) {
     let hit = false;
     try {
@@ -81,21 +81,16 @@ function applyRules(rc, layers, envVars) {
     } catch (e) {
       rc.note(`rule "${rule.name ?? rule.if}": ${e.message}`);
     }
-    rc.trace.rules.push({ name: rule.name ?? null, if: rule.if ?? '(always)', matched: hit, theme: rule.theme ?? null });
+    rc.trace.rules.push({ name: rule.name ?? null, if: rule.if ?? '(always)', matched: hit });
     if (!hit) continue;
     const delta = {};
     for (const key of Object.keys(rule)) if (!RULE_META.has(key)) delta[key] = rule[key];
     overlay = merge(overlay, delta);
-    if (rule.theme && rule.theme !== themeName) {
-      themeName = String(rule.theme);
-      cfg = assemble(layers, themeName, envVars);
-    }
     rc.setConfig(merge(cfg, overlay));
     rc.scope.g = glyphScope(rc.cfg, rc.charset);
     rc.rebindConfigValues();
     if (rule.stop === true) break;
   }
-  rc.trace.theme = themeName;
 }
 
 // ---- layout ---------------------------------------------------------------
@@ -249,6 +244,12 @@ function renderLine(line, rc, width) {
     if (items.length <= 1) break;
     dropped.add(leastImportant(items).key);
     built = build();
+  }
+
+  for (const name of ['left', 'center', 'right']) {
+    sides[name].forEach((item, index) => {
+      if (item.module && dropped.has(`${name}:${index}`)) rc.trace.modules[item.module] = 'dropped';
+    });
   }
 
   const anyContent = built.left.runs.length || built.center.runs.length || built.right.runs.length;
@@ -407,13 +408,25 @@ export function emit(runs, depth, { links = true } = {}) {
 
 // ---- entry point ----------------------------------------------------------
 
+// [layout] rows are plain lists of module names, drawn with the shared [row] look.
+// A [[line]] in your config is the expert route and replaces them entirely.
+export function linesOf(cfg) {
+  if (Array.isArray(cfg.line)) return cfg.line;
+  const rows = Array.isArray(cfg.layout?.rows) ? cfg.layout.rows : [];
+  return rows.filter(Array.isArray).map((row) => {
+    const split = row.indexOf('>');
+    return split < 0
+      ? { ...cfg.row, left: row }
+      : { ...cfg.row, left: row.slice(0, split), right: row.slice(split + 1) };
+  });
+}
+
 export function renderBar(input, opts = {}) {
   const env = opts.env ?? process.env;
   const raw = input && typeof input === 'object' ? input : {};
   const projectDir = opts.projectDir ?? raw.workspace?.project_dir ?? raw.cwd;
-  const layers = opts.layers ?? loadLayers({ env, projectDir, themeOverride: opts.theme });
-  const themeName = opts.theme ?? layers.themeName;
-  const cfg = assemble(layers, themeName, env);
+  const layers = opts.layers ?? loadLayers({ env, projectDir });
+  const cfg = assemble(layers, env);
   if (opts.overlay) Object.assign(cfg, merge(cfg, opts.overlay));
 
   const rc = makeContext(cfg, opts);
@@ -423,14 +436,14 @@ export function renderBar(input, opts = {}) {
   rc.env.now = scope.time.epoch;
   scope.g = glyphScope(rc.cfg, rc.charset);
 
-  applyRules(rc, layers, env);
+  applyRules(rc);
 
   const margin = typeof rc.cfg.settings?.margin === 'number' ? rc.cfg.settings.margin : 4;
   const width = Math.max(1, scope.term.cols - margin);
   const depth = detectDepth(env, rc.cfg.settings?.color);
   const links = rc.cfg.settings?.links !== false;
-  // append_line adds rows under the theme's layout instead of replacing it.
-  const lines = [...(Array.isArray(rc.cfg.line) ? rc.cfg.line : []), ...(Array.isArray(rc.cfg.append_line) ? rc.cfg.append_line : [])];
+  // append_line adds rows under the layout instead of replacing it.
+  const lines = [...linesOf(rc.cfg), ...(Array.isArray(rc.cfg.append_line) ? rc.cfg.append_line : [])];
   const output = [];
   for (const line of lines) {
     let runs = null;
@@ -445,10 +458,10 @@ export function renderBar(input, opts = {}) {
   // Problems stay visible but can never take the bar down.
   const problems = [...layers.errors, ...rc.notes];
   if (problems.length) {
-    const msg = `limit-bar: ${problems[0]}${problems.length > 1 ? ` (+${problems.length - 1} more, see limit-bar doctor)` : ''}`;
+    const msg = `${problems[0]}${problems.length > 1 ? ` (+${problems.length - 1} more)` : ''}`;
     output.push(truncateRuns([{ t: msg, s: parseStyle('hot', rc) }], width));
   } else if (layers.notices.length && rc.cfg.settings?.notices !== false) {
-    output.push(truncateRuns([{ t: `limit-bar: ${layers.notices[0]}`, s: parseStyle('muted', rc) }], width));
+    output.push(truncateRuns([{ t: layers.notices[0], s: parseStyle('muted', rc) }], width));
   }
 
   return {
@@ -461,4 +474,53 @@ export function renderBar(input, opts = {}) {
     depth,
     layers,
   };
+}
+
+// One JSON line per subagent for the agent panel. Only the rows given are touched,
+// and anything unexpected falls back to Claude Code's own row.
+export function renderSubagents(input, opts = {}) {
+  const env = opts.env ?? process.env;
+  const raw = input && typeof input === 'object' ? input : {};
+  const layers = opts.layers ?? loadLayers({ env, projectDir: null });
+  const cfg = assemble(layers, env);
+  const def = cfg.subagent ?? {};
+  if (def.disabled === true || def.format === undefined) return [];
+  const rc = makeContext(cfg, opts);
+  rc.setConfig(cfg);
+  const now = opts.now ?? Date.now() / 1000;
+  const columns = typeof raw.columns === 'number' && raw.columns > 0 ? raw.columns : 120;
+  const depth = detectDepth(env, cfg.settings?.color);
+  const style = parseStyle(def.style, rc);
+  const out = [];
+  for (const task of Array.isArray(raw.tasks) ? raw.tasks : []) {
+    if (!task || typeof task.id !== 'string') continue;
+    const size = typeof task.contextWindowSize === 'number' ? task.contextWindowSize : null;
+    const tokens = typeof task.tokenCount === 'number' ? task.tokenCount : null;
+    rc.scope = {
+      g: glyphScope(cfg, rc.charset),
+      term: { cols: columns },
+      task: {
+        id: task.id,
+        name: task.name ?? null,
+        agent: task.name ?? task.agentType ?? task.type ?? 'agent',
+        type: task.agentType ?? null,
+        text: task.label ?? task.description ?? '',
+        status: task.status ?? null,
+        model: typeof task.model === 'string' ? task.model.replace(/^claude-/, '') : null,
+        effort: task.effort ?? null,
+        tokens,
+        pct: size && tokens !== null ? (tokens / size) * 100 : null,
+        elapsed: typeof task.startTime === 'number' ? Math.max(0, now - task.startTime / 1000) : null,
+        samples: Array.isArray(task.tokenSamples) ? task.tokenSamples : [],
+      },
+    };
+    rc.memo.clear();
+    try {
+      const runs = truncateRuns(renderTemplate(def.format, rc, style), columns);
+      out.push({ id: task.id, content: emit(runs.map((r) => ({ ...r, s: { ...style, ...r.s } })), depth, { links: false }) });
+    } catch (e) {
+      rc.note(e.message);
+    }
+  }
+  return out;
 }

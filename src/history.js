@@ -6,7 +6,7 @@ import path from 'node:path';
 import { readJson, writeAtomic, sha } from './fsutil.js';
 import { cacheDir as defaultCache } from './paths.js';
 
-const MAX_SAMPLES = 120;
+const MAX_SAMPLES = 240;
 const MIN_GAP_SECONDS = 5;
 const RATE_WINDOW_SECONDS = 15 * 60;
 const MIN_SPAN_SECONDS = 60;

@@ -6,8 +6,9 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { renderBar } from './render.js';
 import { FIXTURE_NAMES, fixture } from './fixtures.js';
-import { listThemes, findTheme, projectConfigFile, projectTrustState, readTrust, trustPath, userConfigFiles, loadLayers } from './config.js';
-import { validateAll, validateFile, formatIssue } from './validate.js';
+import { customFile, projectConfigFile, projectTrustState, readTrust, trustPath, userConfigFiles } from './config.js';
+import { addTo, catalog, currentConfig, currentRows, isHex, readCustom, removeFrom, rowOf, runEditor, trimRows, writeCustom } from './customize.js';
+import { validateAll, validateFile, formatIssue, suggest } from './validate.js';
 import { readJson, sha, writeAtomic } from './fsutil.js';
 import { cacheDir, claudeDir, configDir, dataDir, stateDir } from './paths.js';
 import { parseToml } from './toml.js';
@@ -18,24 +19,34 @@ const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf
 const say = (s = '') => process.stdout.write(`${s}\n`);
 const THEME_NOW = () => Date.now() / 1000;
 
-const HELP = `limit-bar ${VERSION}: a Claude Code status line built from a dotfile
+const HELP = `limit-bar ${VERSION}
 
-  limit-bar install [--theme NAME] [--refresh SECONDS] [--link] [--dry-run] [--settings FILE]
-  limit-bar uninstall [--purge] [--settings FILE]
+Customise
+  limit-bar customize                  live editor with a preview
+  limit-bar modules [FILTER]           everything you can show, and where it is
+  limit-bar rows                       the current layout
+  limit-bar show NAME [--row N] [--before X | --after X]
+  limit-bar hide NAME
+  limit-bar move NAME --row N [--before X | --after X]
+  limit-bar set [KEY VALUE]            settings: username, gauge_width, gauge_show,
+                                       bar, clock, warn, hot, charset, sep and more
+  limit-bar color [NAME #HEX]          change any neon colour
+  limit-bar reset                      back to the defaults
 
-  limit-bar themes                     list themes with live previews
-  limit-bar use NAME                   switch theme, keeping your config comments
-  limit-bar preview [NAME|all] [--state fresh|working|danger|all] [--cols N]
+Look and check
+  limit-bar preview [--state fresh|working|danger|all] [--cols N]
                  [--charset nerd|unicode|ascii] [--color truecolor|256|16|none]
-  limit-bar theme new NAME [--from BASE]    copy a theme into your config to edit
-
   limit-bar init [--force]             write a commented starter config
   limit-bar validate [FILE]            check config with file and line numbers
   limit-bar explain [--state NAME]     show which files, rules and modules applied
   limit-bar fields [FILTER] [--json]   list every variable with its current value
-  limit-bar trust | untrust            allow or revoke this project's .limit-bar.toml
+  limit-bar trust | untrust            allow or revoke this project's config file
   limit-bar doctor                     check the whole setup
   limit-bar bench                      measure render time
+
+Set up
+  limit-bar install [--refresh SECONDS] [--link] [--no-agent-rows] [--dry-run] [--settings FILE]
+  limit-bar uninstall [--purge] [--settings FILE]
 
 Config: ${path.join(configDir(), 'config.toml')}
 `;
@@ -55,14 +66,6 @@ function parseArgs(argv) {
   return { flags, rest };
 }
 
-function themeDescription(file) {
-  try {
-    return parseToml(fs.readFileSync(file, 'utf8')).description ?? '';
-  } catch {
-    return '';
-  }
-}
-
 function previewEnv(flags) {
   const env = { ...process.env };
   if (flags.charset) env.LIMITBAR_CHARSET = String(flags.charset);
@@ -70,36 +73,20 @@ function previewEnv(flags) {
   return env;
 }
 
-function renderFixture(theme, state, flags, env) {
+function renderFixture(state, flags, env) {
   const now = THEME_NOW();
   const f = fixture(state, now);
   const cols = Number(flags.cols) || process.stdout.columns || 120;
-  return renderBar(f.input, { env, theme, cols, now, overrides: f.overrides, projectDir: null, offline: true });
+  return renderBar(f.input, { env, cols, now, overrides: f.overrides, projectDir: null, offline: true });
 }
 
-function cmdPreview(flags, rest) {
+function cmdPreview(flags) {
   const env = previewEnv(flags);
-  const name = rest[0] ?? 'all';
-  const themes = name === 'all' ? listThemes(env).map((t) => t.name) : [name];
   const states = !flags.state || flags.state === 'all' ? FIXTURE_NAMES : [String(flags.state)];
   for (const s of states) if (!FIXTURE_NAMES.includes(s)) { say(`Unknown state "${s}". Use ${FIXTURE_NAMES.join(', ')} or all.`); return 1; }
-  for (const theme of themes) {
-    if (!findTheme(theme, env)) { say(`Theme "${theme}" not found. Run limit-bar themes.`); return 1; }
-    for (const state of states) {
-      say(`\x1b[2m${theme} / ${state}\x1b[0m`);
-      say(renderFixture(theme, state, flags, env).text);
-      say();
-    }
-  }
-  return 0;
-}
-
-function cmdThemes(flags) {
-  const env = previewEnv(flags);
-  const current = loadLayers({ env }).themeName;
-  for (const t of listThemes(env)) {
-    say(`${t.name === current ? '● ' : '  '}\x1b[1m${t.name}\x1b[0m${t.builtin ? '' : ' \x1b[2m(yours)\x1b[0m'}  \x1b[2m${themeDescription(t.file)}\x1b[0m`);
-    say(renderFixture(t.name, 'working', flags, env).text);
+  for (const state of states) {
+    say(`\x1b[2m${state}\x1b[0m`);
+    say(renderFixture(state, flags, env).text);
     say();
   }
   return 0;
@@ -121,45 +108,155 @@ function cmdInit(flags) {
   return 0;
 }
 
-export function setThemeInText(text, name) {
-  const lines = text.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    if (/^\s*\[/.test(lines[i])) break;
-    if (/^\s*theme\s*=/.test(lines[i])) {
-      const comment = /(\s+#.*)$/.exec(lines[i])?.[1] ?? '';
-      lines[i] = `theme = "${name}"${comment}`;
-      return lines.join('\n');
-    }
-  }
-  return `theme = "${name}"\n${text}`;
-}
+// ---- customising ----------------------------------------------------------
 
-function cmdUse(rest) {
-  const name = rest[0];
-  if (!name) { say('Usage: limit-bar use NAME'); return 1; }
-  if (!findTheme(name)) { say(`Theme "${name}" not found. Run limit-bar themes.`); return 1; }
-  const file = mainConfigPath();
-  let text = '';
-  try { text = fs.readFileSync(file, 'utf8'); } catch { /* created below */ }
-  if (!text) text = fs.readFileSync(path.join(ROOT, 'examples', 'starter.toml'), 'utf8');
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  writeAtomic(file, setThemeInText(text, name), 0o644);
-  say(`Theme set to ${name}`);
+const SET_KEYS = {
+  username: 'text', gauge_width: 'int', gauge_show: ['used', 'left'], bar: 'bar', clock: ['24h', '12h'],
+  warn: 'int', hot: 'int', charset: ['nerd', 'unicode', 'ascii'], color: ['auto', 'truecolor', '256', '16', 'none'],
+  sep: 'text', margin: 'int', links: 'bool', notices: 'bool', git_ttl: 'int', ctx_limit: 'int',
+};
+
+function saveCustom(mutate) {
+  if (process.env.LIMITBAR_CONFIG) { say('LIMITBAR_CONFIG is set, which replaces the file this saves to. Edit that file instead.'); return 1; }
+  const custom = readCustom();
+  mutate(custom);
+  writeCustom(custom);
   return 0;
 }
 
-function cmdThemeNew(rest, flags) {
-  const name = rest[1];
-  if (rest[0] !== 'new' || !name) { say('Usage: limit-bar theme new NAME [--from BASE]'); return 1; }
-  if (!/^[A-Za-z0-9_-]+$/.test(name)) { say('Theme names can use letters, digits, - and _.'); return 1; }
-  const from = String(flags.from ?? 'graphite');
-  const src = findTheme(from);
-  if (!src) { say(`Theme "${from}" not found.`); return 1; }
-  const dest = path.join(configDir(), 'themes', `${name}.toml`);
-  if (fs.existsSync(dest)) { say(`${dest} already exists.`); return 1; }
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.copyFileSync(src, dest);
-  say(`Wrote ${dest}\nActivate it with: limit-bar use ${name}`);
+const saveRows = (rows) => saveCustom((c) => { c.layout = { rows }; });
+
+function printRows(rows) {
+  rows.forEach((row, i) => say(`  row ${i + 1}  ${row.join(' ') || '(empty)'}`));
+}
+
+function needModule(name, cfg) {
+  if (!name) { say('Which one? List them with: limit-bar modules'); return false; }
+  if (Object.hasOwn(cfg.module ?? {}, name)) return true;
+  const hit = suggest(name, Object.keys(cfg.module ?? {}));
+  say(`No module called "${name}".${hit ? ` Did you mean ${hit}?` : ''} List them with: limit-bar modules`);
+  return false;
+}
+
+function placeArgs(flags, rows) {
+  const opts = {};
+  if (flags.before !== undefined) opts.before = String(flags.before);
+  if (flags.after !== undefined) opts.after = String(flags.after);
+  if (flags.row !== undefined) {
+    const n = Number(flags.row);
+    if (!Number.isInteger(n) || n < 1) { say('--row must be a whole number, 1 or more.'); return null; }
+    opts.row = n - 1;
+  }
+  const anchor = opts.before ?? opts.after;
+  if (anchor !== undefined && rowOf(rows, anchor) < 0) { say(`"${anchor}" is not on any row.`); return null; }
+  return opts;
+}
+
+function cmdShow(rest, flags) {
+  const cfg = currentConfig();
+  if (!needModule(rest[0], cfg)) return 1;
+  const rows = currentRows();
+  const opts = placeArgs(flags, rows);
+  if (!opts) return 1;
+  const next = addTo(rows, rest[0], opts);
+  if (!next) { say('That row is out of range.'); return 1; }
+  const code = saveRows(next);
+  if (!code) printRows(next);
+  return code;
+}
+
+function cmdHide(rest) {
+  const cfg = currentConfig();
+  if (!needModule(rest[0], cfg)) return 1;
+  const rows = currentRows();
+  if (rowOf(rows, rest[0]) < 0) { say(`${rest[0]} is already off.`); return 0; }
+  const next = trimRows(removeFrom(rows, rest[0]));
+  const code = saveRows(next);
+  if (!code) printRows(next);
+  return code;
+}
+
+function cmdMove(rest, flags) {
+  if (flags.row === undefined && flags.before === undefined && flags.after === undefined) { say('Usage: limit-bar move NAME --row N [--before X | --after X]'); return 1; }
+  return cmdShow(rest, flags);
+}
+
+function cmdRows() {
+  printRows(currentRows());
+  return 0;
+}
+
+function cmdModules(rest) {
+  const cfg = currentConfig();
+  const rows = currentRows();
+  const filter = rest[0];
+  let group = null;
+  for (const item of catalog(cfg)) {
+    if (filter && !`${item.name} ${item.group} ${item.about}`.toLowerCase().includes(filter.toLowerCase())) continue;
+    if (item.group !== group) { group = item.group; say(`\n\x1b[1m${group}\x1b[0m`); }
+    const row = rowOf(rows, item.name);
+    say(`  ${row >= 0 ? `row ${row + 1}` : '  off'}  ${item.name.padEnd(13)} \x1b[2m${item.about}\x1b[0m`);
+  }
+  say('\nTurn one on with: limit-bar show NAME --row N');
+  return 0;
+}
+
+function cmdSet(rest) {
+  const cfg = currentConfig();
+  if (!rest.length) {
+    for (const key of Object.keys(SET_KEYS)) say(`  ${key.padEnd(12)} ${cfg.settings?.[key] ?? '(default)'}`);
+    return 0;
+  }
+  const [key, ...parts] = rest;
+  const raw = parts.join(' ');
+  const kind = SET_KEYS[key];
+  if (!kind) {
+    const hit = suggest(key, Object.keys(SET_KEYS));
+    say(`Unknown setting "${key}".${hit ? ` Did you mean ${hit}?` : ''}`);
+    return 1;
+  }
+  if (!raw) { say(`Usage: limit-bar set ${key} VALUE`); return 1; }
+  let value = raw;
+  if (kind === 'int') {
+    value = Number(raw);
+    if (!Number.isInteger(value) || value < 0) { say(`${key} must be a whole number.`); return 1; }
+  } else if (kind === 'bool') {
+    if (raw !== 'true' && raw !== 'false') { say(`${key} must be true or false.`); return 1; }
+    value = raw === 'true';
+  } else if (kind === 'bar') {
+    if (!Object.hasOwn(cfg.bars ?? {}, raw)) { say(`Gauge designs: ${Object.keys(cfg.bars ?? {}).join(', ')}`); return 1; }
+  } else if (Array.isArray(kind) && !kind.includes(raw)) {
+    say(`${key} must be one of: ${kind.join(', ')}`);
+    return 1;
+  }
+  const code = saveCustom((c) => { c.settings = { ...c.settings, [key]: value }; });
+  if (!code) say(`${key} = ${value}`);
+  return code;
+}
+
+function cmdColor(rest) {
+  const cfg = currentConfig();
+  if (!rest.length) {
+    for (const [name, hex] of Object.entries(cfg.palette ?? {})) say(`  ${name.padEnd(8)} ${hex}`);
+    return 0;
+  }
+  const [name, hex] = rest;
+  if (!Object.hasOwn(cfg.palette ?? {}, name)) {
+    const hit = suggest(name, Object.keys(cfg.palette ?? {}));
+    say(`No colour called "${name}".${hit ? ` Did you mean ${hit}?` : ''}`);
+    return 1;
+  }
+  if (!hex || !isHex(hex)) { say('Colours are written like #ff2bd6.'); return 1; }
+  const code = saveCustom((c) => { c.palette = { ...c.palette, [name]: hex }; });
+  if (!code) say(`${name} = ${hex}`);
+  return code;
+}
+
+function cmdReset() {
+  const file = customFile();
+  if (!fs.existsSync(file)) { say('Nothing to reset.'); return 0; }
+  fs.unlinkSync(file);
+  say('Back to the defaults. Your config.toml was left alone.');
   return 0;
 }
 
@@ -199,21 +296,22 @@ function cmdExplain(flags) {
   say(`Width      ${r.scope.term.cols} columns, ${r.width} usable`);
   say(`Colour     ${r.depth}`);
   say(`Charset    ${r.rc.charset}`);
-  say(`Theme      ${r.layers.themeName}${r.rc.trace.theme !== r.layers.themeName ? ` -> ${r.rc.trace.theme} (changed by a rule)` : ''}`);
   say(`Render     ${ms.toFixed(1)} ms`);
   say('\nConfig files, lowest priority first');
   say('  built-in defaults');
-  say(`  theme: ${r.layers.themeName}`);
+  say('  neon');
   for (const f of r.layers.files) say(`  ${f}`);
   say('\nRules');
   if (!r.rc.trace.rules.length) say('  none');
   for (const rule of r.rc.trace.rules) {
-    say(`  ${rule.matched ? 'matched ' : 'skipped '} ${rule.name ? `${rule.name}: ` : ''}${rule.if}${rule.matched && rule.theme ? `  -> theme ${rule.theme}` : ''}`);
+    say(`  ${rule.matched ? 'matched ' : 'skipped '} ${rule.name ? `${rule.name}: ` : ''}${rule.if}`);
   }
   say('\nModules');
   const mods = Object.entries(r.rc.trace.modules);
   say(`  shown:  ${mods.filter(([, v]) => v === 'shown').map(([k]) => k).join(', ') || 'none'}`);
-  say(`  hidden: ${mods.filter(([, v]) => v === 'hidden').map(([k]) => k).join(', ') || 'none'}`);
+  say(`  hidden, nothing to show: ${mods.filter(([, v]) => v === 'hidden').map(([k]) => k).join(', ') || 'none'}`);
+  say(`  dropped, no room: ${mods.filter(([, v]) => v === 'dropped').map(([k]) => k).join(', ') || 'none'}`);
+  say(`  disabled: ${mods.filter(([, v]) => v === 'off').map(([k]) => k).join(', ') || 'none'}`);
   if (r.problems.length) { say('\nProblems'); for (const x of r.problems) say(`  ${x}`); }
   if (r.layers.notices.length) { say('\nNotices'); for (const x of r.layers.notices) say(`  ${x}`); }
   say('\nOutput');
@@ -235,7 +333,7 @@ function collectFields(obj, prefix, out, depth = 0) {
 function cmdFields(flags, rest) {
   const p = payloadFor(flags);
   if (!p) { say(`Unknown state. Use ${FIXTURE_NAMES.join(', ')}.`); return 1; }
-  const r = renderBar(p.input, { overrides: p.overrides, offline: true });
+  const r = renderBar(p.input, { overrides: { history: { series: { ctx: [], cost: [], h5: [], d7: [], tokens: [] }, rate: {}, eta: {} }, ...p.overrides }, offline: true });
   let fields = collectFields(r.scope, '', {});
   if (rest[0]) fields = Object.fromEntries(Object.entries(fields).filter(([k]) => k.includes(rest[0])));
   if (flags.json) { say(JSON.stringify(fields, null, 2)); return 0; }
@@ -283,6 +381,7 @@ function cmdTrust(revoke) {
 
 const settingsPath = (flags) => (flags.settings ? path.resolve(String(flags.settings)) : path.join(claudeDir(), 'settings.json'));
 const previousFile = () => path.join(stateDir(), 'previous-statusline.json');
+const previousAgentRowsFile = () => path.join(stateDir(), 'previous-subagent-statusline.json');
 const quote = (p) => `"${p.replace(/\\/g, '/')}"`;
 
 // process.execPath is often a versioned location such as Homebrew's Cellar, which
@@ -325,14 +424,14 @@ function cmdInstall(flags) {
   }
   const refresh = flags.refresh === undefined ? 5 : Number(flags.refresh);
   if (!Number.isInteger(refresh) || refresh < 1) { say('--refresh must be a whole number of seconds, 1 or more.'); return 1; }
-  if (flags.theme && !findTheme(String(flags.theme))) { say(`Theme "${flags.theme}" not found.`); return 1; }
 
   const appDir = flags.link ? ROOT : path.join(dataDir(), 'app');
   const bin = path.join(appDir, 'bin', 'limit-bar.js');
   const statusLine = { type: 'command', command: `${quote(stableNodePath())} ${quote(bin)}`, padding: 0, refreshInterval: refresh };
+  const agentRows = flags['no-agent-rows'] ? null : { type: 'command', command: `${quote(stableNodePath())} ${quote(bin)} subagent` };
 
   if (flags['dry-run']) {
-    say(`Would write to ${file}:\n${JSON.stringify({ statusLine }, null, 2)}`);
+    say(`Would write to ${file}:\n${JSON.stringify({ statusLine, ...(agentRows ? { subagentStatusLine: agentRows } : {}) }, null, 2)}`);
     if (settings.statusLine) say(`\nReplacing (kept for limit-bar uninstall):\n${JSON.stringify({ statusLine: settings.statusLine }, null, 2)}`);
     if (!flags.link) say(`\nWould copy limit-bar to ${appDir}`);
     return 0;
@@ -344,6 +443,11 @@ function cmdInstall(flags) {
   // Reinstalling must not replace the backup of your original file with its own output.
   if (fs.existsSync(file) && !already) fs.copyFileSync(file, `${file}.limit-bar.bak`);
   settings.statusLine = statusLine;
+  if (agentRows) {
+    const current = settings.subagentStatusLine;
+    if (current && !String(current.command ?? '').includes('limit-bar.js')) writeAtomic(previousAgentRowsFile(), JSON.stringify(current, null, 2));
+    settings.subagentStatusLine = agentRows;
+  }
   fs.mkdirSync(path.dirname(file), { recursive: true });
   writeAtomic(file, `${JSON.stringify(settings, null, 2)}\n`, 0o644);
 
@@ -358,10 +462,9 @@ function cmdInstall(flags) {
       linked = link;
     } catch { /* the printed command below still works */ }
   }
-  if (flags.theme) cmdUse([String(flags.theme)]);
   say(`Installed. ${file} now runs limit-bar, refreshing every ${refresh}s.`);
   say(`Your old file is saved as ${path.basename(file)}.limit-bar.bak`);
-  say(linked ? 'Try: limit-bar themes' : `Try: node ${quote(bin)} themes`);
+  say(linked ? 'Try: limit-bar customize' : `Try: node ${quote(bin)} customize`);
   return 0;
 }
 
@@ -379,6 +482,10 @@ function cmdUninstall(flags) {
   } else {
     const previous = readJson(previousFile());
     if (previous) settings.statusLine = previous; else delete settings.statusLine;
+    if (String(settings.subagentStatusLine?.command ?? '').includes('limit-bar.js')) {
+      const previousRows = readJson(previousAgentRowsFile());
+      if (previousRows) settings.subagentStatusLine = previousRows; else delete settings.subagentStatusLine;
+    }
     writeAtomic(file, `${JSON.stringify(settings, null, 2)}\n`, 0o644);
     say(previous ? 'Restored your previous status line.' : 'Removed the status line setting.');
   }
@@ -451,16 +558,10 @@ function cmdDoctor() {
 
 function cmdBench(flags) {
   const runs = Number(flags.runs) || 200;
-  const results = [];
-  const themes = listThemes().map((t) => t.name);
-  for (const theme of themes) {
-    const f = fixture('working', THEME_NOW());
-    const started = process.hrtime.bigint();
-    for (let i = 0; i < runs; i++) renderBar(f.input, { theme, overrides: f.overrides, offline: true, projectDir: null, cols: 120 });
-    results.push([theme, Number(process.hrtime.bigint() - started) / 1e6 / runs]);
-  }
-  say(`In-process render, ${runs} runs each`);
-  for (const [t, ms] of results) say(`  ${t.padEnd(14)} ${ms.toFixed(2)} ms`);
+  const f = fixture('working', THEME_NOW());
+  const started = process.hrtime.bigint();
+  for (let i = 0; i < runs; i++) renderBar(f.input, { overrides: f.overrides, offline: true, projectDir: null, cols: 120 });
+  say(`In-process render, ${runs} runs: ${(Number(process.hrtime.bigint() - started) / 1e6 / runs).toFixed(2)} ms each`);
   const bin = path.join(ROOT, 'bin', 'limit-bar.js');
   const payload = JSON.stringify(fixture('working', THEME_NOW()).input);
   const samples = [];
@@ -483,10 +584,16 @@ export async function runCli(argv) {
     case 'install': return cmdInstall(flags);
     case 'uninstall': return cmdUninstall(flags);
     case 'init': return cmdInit(flags);
-    case 'use': return cmdUse(rest);
-    case 'theme': return cmdThemeNew(rest, flags);
-    case 'themes': return cmdThemes(flags);
-    case 'preview': return cmdPreview(flags, rest);
+    case 'customize': case 'customise': return runEditor({ say });
+    case 'modules': return cmdModules(rest);
+    case 'rows': return cmdRows();
+    case 'show': return cmdShow(rest, flags);
+    case 'hide': return cmdHide(rest);
+    case 'move': return cmdMove(rest, flags);
+    case 'set': return cmdSet(rest);
+    case 'color': case 'colour': return cmdColor(rest);
+    case 'reset': return cmdReset();
+    case 'preview': return cmdPreview(flags);
     case 'validate': return cmdValidate(rest);
     case 'explain': return cmdExplain(flags);
     case 'fields': return cmdFields(flags, rest);

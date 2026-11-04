@@ -1,6 +1,6 @@
 // Config layers, lowest priority first:
-//   built-in defaults < theme < conf.d + config.toml < trusted project .limit-bar.toml
-// Themes are data only and cannot define [source] commands. A project file is
+//   built-in defaults < neon < conf.d + config.toml + custom.toml < trusted project file
+// A project file is
 // ignored until `limit-bar trust` pins its hash, because cloning a repo must not be
 // able to run commands or change your bar.
 
@@ -36,55 +36,9 @@ function parseFile(file, lines) {
   return file.endsWith('.json') ? JSON.parse(text) : parseToml(text, { lines });
 }
 
-// Themes may not run anything, wherever they try to declare it.
-export function stripExecutable(layer, removed = []) {
-  if (!layer || typeof layer !== 'object') return layer;
-  if (layer.source) { removed.push('source'); delete layer.source; }
-  if (Array.isArray(layer.when)) for (const rule of layer.when) stripExecutable(rule, removed);
-  return layer;
-}
-
-export function themeDirs(env = process.env) {
-  return [path.join(configDir(env), 'themes'), BUILTIN_THEMES];
-}
-
-export function findTheme(name, env = process.env) {
-  if (!/^[A-Za-z0-9_.-]+$/.test(String(name)) || String(name).startsWith('.')) return null;
-  for (const dir of themeDirs(env)) {
-    for (const ext of ['.toml', '.json']) {
-      const f = path.join(dir, `${name}${ext}`);
-      if (fs.existsSync(f)) return f;
-    }
-  }
-  return null;
-}
-
-export function listThemes(env = process.env) {
-  const seen = new Map();
-  for (const dir of themeDirs(env)) {
-    let names = [];
-    try { names = fs.readdirSync(dir); } catch { /* no user themes yet */ }
-    for (const n of names.sort()) {
-      const m = /^(.+)\.(toml|json)$/.exec(n);
-      if (m && !seen.has(m[1])) seen.set(m[1], { name: m[1], file: path.join(dir, n), builtin: dir === BUILTIN_THEMES });
-    }
-  }
-  return [...seen.values()];
-}
-
-export function loadTheme(name, env = process.env, seen = new Set()) {
-  if (seen.has(name)) throw new Error(`theme "${name}" extends itself`);
-  seen.add(name);
-  const file = findTheme(name, env);
-  if (!file) throw new Error(`theme "${name}" not found`);
-  const layer = stripExecutable(parseFile(file));
-  if (layer.extends) {
-    const parent = loadTheme(String(layer.extends), env, seen);
-    delete layer.extends;
-    return merge(parent, layer);
-  }
-  return layer;
-}
+export const THEME = 'neon';
+const THEME_FILE = path.join(BUILTIN_THEMES, `${THEME}.toml`);
+export const customFile = (env = process.env) => path.join(configDir(env), 'custom.toml');
 
 export function userConfigFiles(env = process.env) {
   if (env.LIMITBAR_CONFIG) return [env.LIMITBAR_CONFIG];
@@ -99,6 +53,8 @@ export function userConfigFiles(env = process.env) {
   for (const f of [path.join(dir, 'config.toml'), path.join(dir, 'config.json')]) {
     if (fs.existsSync(f)) files.push(f);
   }
+  // Written by `show`, `hide`, `set`, `color` and `customize`, so it comes last.
+  if (fs.existsSync(customFile(env))) files.push(customFile(env));
   return files;
 }
 
@@ -121,7 +77,7 @@ export function projectTrustState(file, env = process.env) {
 
 // ---- assembly -------------------------------------------------------------
 
-export function loadLayers({ env = process.env, projectDir, themeOverride } = {}) {
+export function loadLayers({ env = process.env, projectDir } = {}) {
   const errors = [];
   const notices = [];
   const files = [];
@@ -148,30 +104,26 @@ export function loadLayers({ env = process.env, projectDir, themeOverride } = {}
           project = parseFile(file);
           files.push(file);
         } catch (e) {
-          errors.push(`.limit-bar.toml ${e.message}`);
+          errors.push(`project config ${e.message}`);
         }
       } else {
-        notices.push(state === 'changed' ? '.limit-bar.toml changed: run limit-bar trust' : '.limit-bar.toml found: run limit-bar trust');
+        notices.push(state === 'changed' ? 'project config changed and is ignored until trusted again' : 'project config found and ignored until trusted');
       }
     }
   }
 
-  const themeName = themeOverride ?? env.LIMITBAR_THEME ?? project.theme ?? user.theme ?? defaults.theme ?? 'graphite';
-  return { defaults, user, project, themeName, errors, notices, files };
+  return { defaults, user, project, errors, notices, files };
 }
 
-export function assemble(layers, themeName, env = process.env) {
+export function assemble(layers, env = process.env) {
   let theme = {};
   try {
-    theme = loadTheme(themeName, env);
+    theme = parseFile(THEME_FILE);
   } catch (e) {
-    layers.errors.push(e.message);
-    if (themeName !== 'graphite') {
-      try { theme = loadTheme('graphite', env); } catch { /* defaults still render */ }
-    }
+    layers.errors.push(`${THEME}: ${e.message}`);
   }
   let cfg = merge(merge(merge(layers.defaults, theme), layers.user), layers.project);
-  cfg.theme = themeName;
+  cfg.theme = THEME;
   if (env.LIMITBAR_COLOR) cfg = merge(cfg, { settings: { color: env.LIMITBAR_COLOR } });
   if (env.LIMITBAR_CHARSET) cfg = merge(cfg, { settings: { charset: env.LIMITBAR_CHARSET } });
   return cfg;

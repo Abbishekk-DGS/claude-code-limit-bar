@@ -1,15 +1,31 @@
-# limit-bar config. Everything here is optional: delete what you do not need.
-# Reference: docs/CONFIG.md  |  Check it: limit-bar validate  |  See values: limit-bar fields
-theme = "neon"   # limit-bar themes lists them all
+# Your bar's config. Everything here is optional: delete what you do not need.
+# Check it: limit-bar validate  |  See values: limit-bar fields
+#
+# For quick changes you do not need this file at all:
+#   limit-bar customize      live editor with a preview
+#   limit-bar show NAME      turn something on (limit-bar modules lists them)
+#   limit-bar set KEY VALUE  username, gauge_width, bar, clock and more
+#   limit-bar color pink "#ff00aa"
 
 [settings]
-# charset = "nerd"   # nerd | unicode | ascii. Use nerd if your font has the glyphs.
-# warn = 60          # severity() thresholds used by gauges and colours
+# username = "neo"     # what the bar calls you
+# charset = "nerd"     # nerd | unicode | ascii. Use nerd if your font has the glyphs
+# gauge_width = 10
+# gauge_show = "used"  # used | left
+# clock = "24h"        # 24h | 12h
+# warn = 60            # severity() thresholds used by colours
 # hot  = 85
 
 # Recolour anything. Names defined here can be used in any style.
 # [palette]
-# accent = "#7fe3dd"
+# pink = "#ff00aa"
+
+# Choose what each row shows. A ">" pushes what follows to the right.
+# [layout]
+# rows = [
+#   ["h5", "d7", "ctx"],
+#   ["user", "git", "git_changes", ">", "clock"],
+# ]
 
 # Change how a built-in module looks.
 # [module.ctx]
@@ -23,20 +39,13 @@ theme = "neon"   # limit-bar themes lists them all
 # [module.kube]
 # if = "source.kube.value"
 # format = "k8s {source.kube.value}"
-# style = "accent"
+# style = "cyan"
 
-# Replace the whole layout. Each [[line]] is one row in the terminal.
-# [[line]]
-# left  = ["model", "dir", "git"]
-# right = ["ctx", "kube"]
+# Then add it to a row with: limit-bar show kube
 
-# Or keep the theme's layout and add a row under it. This follows you between themes.
-# [[append_line]]
-# left  = ["user", "path", "session"]
-# right = ["ctx_tokens", "duration", "version", "clock"]
-
-# React to state. A rule can override anything, including the whole theme.
+# React to state. A rule can override anything.
 # [[when]]
 # name = "alarm when context is nearly full"
 # if = "ctx.pct >= 90"
-# theme = "cockpit"
+# [when.palette]
+# violet = "#ff2bd6"

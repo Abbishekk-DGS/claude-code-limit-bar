@@ -7,15 +7,18 @@ import path from 'node:path';
 import { parseToml } from './toml.js';
 import { compile, pathsOf } from './expr.js';
 import { parseTemplate, templateRefs, parseStyle } from './template.js';
-import { assemble, loadLayers, findTheme, userConfigFiles, merge } from './config.js';
+import { assemble, loadLayers, THEME, userConfigFiles, merge } from './config.js';
 import { buildScope } from './data.js';
 import { fixture } from './fixtures.js';
 
-const TOP = ['theme', 'description', 'extends', 'settings', 'palette', 'style', 'glyphs', 'bars', 'var', 'source', 'module', 'line', 'append_line', 'when'];
-const SETTINGS = ['charset', 'color', 'margin', 'warn', 'hot', 'bar', 'git_ttl', 'ctx_limit', 'links', 'notices', 'sep'];
-const MODULE = ['if', 'format', 'compact', 'style', 'priority', 'link', 'disabled'];
+const TOP = ['theme', 'description', 'settings', 'palette', 'style', 'glyphs', 'bars', 'var', 'source', 'module', 'layout', 'row', 'subagent', 'line', 'append_line', 'when'];
+const SETTINGS = ['charset', 'color', 'margin', 'warn', 'hot', 'bar', 'git_ttl', 'ctx_limit', 'links', 'notices', 'sep', 'gauge_width', 'gauge_show', 'clock', 'username'];
+const SETTING_VALUES = { charset: ['nerd', 'unicode', 'ascii'], color: ['auto', 'truecolor', '256', '16', 'none'], gauge_show: ['used', 'left'], clock: ['24h', '12h'] };
+const LAYOUT = ['rows'];
+const SUBAGENT = ['format', 'style', 'disabled'];
+const MODULE = ['if', 'format', 'compact', 'style', 'priority', 'link', 'disabled', 'group', 'about'];
 const LINE = ['if', 'style', 'left', 'center', 'right', 'sep', 'sep_style', 'mode', 'prefix', 'suffix', 'fill', 'fill_style', 'full', 'keep', 'min_width', 'max_width'];
-const RULE_ONLY = ['if', 'name', 'theme', 'stop'];
+const RULE_ONLY = ['if', 'name', 'stop'];
 const BAR = ['fill', 'empty', 'track', 'partial', 'color', 'ramp', 'left', 'right', 'empty_style', 'cap_style', 'label', 'label_fill', 'label_track', 'dither'];
 const SOURCE = ['command', 'file', 'env', 'every', 'timeout', 'parse', 'scope'];
 
@@ -166,6 +169,26 @@ export function validateLayer(layer, cfg, report) {
   const checkSections = (l, prefix) => {
     const at = (s) => (prefix ? `${prefix}.${s}` : s);
     checkKeys(l.settings, SETTINGS, at('settings'), report);
+    for (const [key, allowed] of Object.entries(SETTING_VALUES)) {
+      const v = l.settings?.[key];
+      if (v !== undefined && !allowed.includes(v)) report(at(`settings.${key}`), `must be one of ${allowed.join(', ')}, not "${v}"`);
+    }
+    if (l.settings?.bar !== undefined && !Object.hasOwn(cfg.bars ?? {}, l.settings.bar)) report(at('settings.bar'), `no gauge design called "${l.settings.bar}"`);
+    if (l.layout !== undefined) {
+      checkKeys(l.layout, LAYOUT, at('layout'), report);
+      const rows = l.layout.rows;
+      if (rows !== undefined && !(Array.isArray(rows) && rows.every(Array.isArray))) report(at('layout.rows'), 'must be a list of rows, each a list of module names');
+      else for (const entry of (rows ?? []).flat()) {
+        if (entry !== '>' && !modules.includes(String(entry))) {
+          const hint = suggest(String(entry), modules);
+          report(at('layout.rows'), `unknown module "${entry}"${hint ? `, did you mean "${hint}"?` : ''}`);
+        }
+      }
+    }
+    if (l.subagent !== undefined) {
+      checkKeys(l.subagent, SUBAGENT, at('subagent'), report);
+      checkStyle(l.subagent.style, at('subagent.style'));
+    }
     for (const [name, def] of Object.entries(l.bars ?? {})) {
       checkKeys(def, BAR, at(`bars.${name}`), report);
       checkStyle(def.empty_style, at(`bars.${name}.empty_style`));
@@ -189,7 +212,6 @@ export function validateLayer(layer, cfg, report) {
     const at = `when[${i}]`;
     checkKeys(rule, [...RULE_ONLY, ...TOP.filter((k) => !['when', 'theme', 'description', 'extends'].includes(k))], at, report);
     if (rule.if !== undefined) checkExpr(rule.if, `${at}.if`);
-    if (rule.theme && !findTheme(String(rule.theme))) report(`${at}.theme`, `theme "${rule.theme}" not found`);
     checkSections(rule, at);
   });
 }
@@ -205,13 +227,12 @@ export function validateFile(file, env = process.env) {
     return [{ file, line: e.line ?? null, path: '', message: e.message.replace(/^line \d+: /, ''), level: 'error' }];
   }
   const base = loadLayers({ env, projectDir: null });
-  const themeName = layer.theme ?? base.themeName;
-  if (layer.theme && !findTheme(String(layer.theme), env)) {
-    issues.push({ file, line: lines.get('theme') ?? null, path: 'theme', message: `theme "${layer.theme}" not found`, level: 'error' });
+  if (layer.theme !== undefined && layer.theme !== THEME) {
+    issues.push({ file, line: lines.get('theme') ?? null, path: 'theme', message: `only ${THEME} is available, so "${layer.theme}" is ignored`, level: 'warning' });
   }
   let cfg;
   try {
-    cfg = merge(assemble(base, findTheme(themeName, env) ? themeName : 'graphite', env), layer);
+    cfg = merge(assemble(base, env), layer);
   } catch (e) {
     return [...issues, { file, line: null, path: '', message: e.message, level: 'error' }];
   }

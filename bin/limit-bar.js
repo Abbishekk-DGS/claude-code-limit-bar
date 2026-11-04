@@ -4,7 +4,7 @@
 import module from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-import { renderBar } from '../src/render.js';
+import { renderBar, renderSubagents } from '../src/render.js';
 import { cacheDir } from '../src/paths.js';
 import { writeAtomic } from '../src/fsutil.js';
 
@@ -26,8 +26,14 @@ if (args[0] === 'render' || (args.length === 0 && !process.stdin.isTTY)) {
     if (text && process.env.LIMITBAR_NO_CAPTURE !== '1') writeAtomic(path.join(cacheDir(), 'last.json'), text);
     process.stdout.write(`${out}\n`);
   } catch (e) {
-    process.stdout.write(`limit-bar: ${String(e.message).split('\n')[0]}\n`);
+    process.stdout.write(`${String(e.message).split('\n')[0]}\n`);
   }
+} else if (args[0] === 'subagent') {
+  // Any failure prints nothing, which keeps Claude Code's own row for that agent.
+  try {
+    const rows = renderSubagents(JSON.parse(readStdin() || '{}'));
+    if (rows.length) process.stdout.write(`${rows.map((r) => JSON.stringify(r)).join('\n')}\n`);
+  } catch { /* default rows stay */ }
 } else {
   const { runCli } = await import('../src/cli.js');
   process.exitCode = await runCli(args);
