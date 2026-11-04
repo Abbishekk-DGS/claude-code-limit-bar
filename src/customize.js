@@ -108,11 +108,11 @@ const LIME = `${ESC}38;5;34m`;
 const DIM = `${ESC}2m`;
 const OFF = `${ESC}0m`;
 
-export function drawEditor(st, { cols, lines, env }) {
-  const f = fixture(st.state);
+export function drawEditor(st, { cols, lines, env, now }) {
+  const f = fixture(st.state, now);
   delete f.overrides.user; // your real username, since this stays on your screen
   const overlay = { layout: { rows: st.rows }, settings: st.settings };
-  const preview = renderBar(f.input, { env, overlay, cols, overrides: f.overrides, offline: true, projectDir: null }).text;
+  const preview = renderBar(f.input, { env, overlay, cols, now, overrides: f.overrides, offline: true, projectDir: null }).text;
   const previewRows = preview.split('\n');
   const head = [
     `${PINK}${ESC}1mCustomize the bar${OFF}  ${DIM}sample: ${st.state}${OFF}`,

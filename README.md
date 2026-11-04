@@ -1,39 +1,142 @@
 # claude-code-limit-bar
 
-A neon status line for Claude Code. Rate limits, context, git, running tools, subagents
-and session totals, in a bar you can rearrange from a live editor or a dotfile.
+A neon status line for Claude Code. It shows how close you are to your limits and where
+your pace will land you, what Claude is doing this second, and how far the work has moved.
 
-![The neon bar on a white terminal and a black terminal](assets/neon.png)
+![The bar through one session: gauges fill, tools change, and a forecast appears when the limit is in reach](assets/session.gif)
 
 ```sh
 npx github:Abbishekk-DGS/claude-code-limit-bar install
 ```
 
-That also gives you the short command `limit-bar`, used below. Your next session uses it. Needs Node 18 or newer and has no dependencies. Your existing
-status line is saved, and `limit-bar uninstall` puts it back.
+Start a new Claude Code session and it's there. It needs Node 18 or newer, has no
+dependencies, and never touches the network. Your existing status line is saved, and
+`limit-bar uninstall` puts it back.
 
-The background is transparent, so your terminal shows through, and the colours are picked
-to read on both white and black. The bar calls you by your username. It never shows the folder, the repo or its own name
-unless you turn those on, so nothing about the project you are in ends up in a screenshot.
+## Why use it
 
-## What it shows
+| | |
+|---|---|
+| **See trouble coming** | Each gauge shows where your pace lands at reset, and a warning appears if you will run out first |
+| **Better for screenshots** | It shows your username, not the folder, the repo or its own name, unless you turn those on. Branch and file names still appear |
+| **Yours to rearrange** | Move anything with a live editor, a one-line command or a config file |
+| **Reads anywhere** | The background is transparent, and the colours are picked to read on white and on black |
 
-Rows with nothing to show disappear. The defaults are:
+## How to read it
 
-1. **Limits.** 5-hour and 7-day gauges with the time to reset and where your pace is
-   heading, the context gauge, and a warning when you will hit the limit before it resets.
-2. **You and git.** Username, branch, ahead and behind, staged, modified, untracked and
-   conflicted files, merge or rebase in progress, pull request, worktree, lines changed.
-3. **The session.** Model and tokens, effort, thinking, fast mode, output style, prompt
-   cache countdown, Claude Code version.
-4. **Right now.** Running tool with its target and elapsed time, subagents including
-   background ones, todos, skills.
-5. **Totals.** Session length, turns, tool calls, compactions, output speed, token burn.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/anatomy-dark.png">
+  <img alt="The five rows of the bar, with every symbol explained" src="assets/anatomy-light.png">
+</picture>
 
-Another 40 or so can be turned on, such as stashes, tags, time since the last commit,
-reset clock times, sparklines, cache hit rate and misses, MCP servers, and SSH or tmux
-flags. `limit-bar modules` lists them all. Subagents also get neon rows in Claude Code's
-agent panel, with their model, elapsed time, token trend and share of their context.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/gauge-dark.png">
+  <img alt="One limit gauge, with its four parts numbered and explained" src="assets/gauge-light.png">
+</picture>
+
+## Everything it can show
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/modules-dark.png">
+  <img alt="All 72 modules by group, with the 32 that are on by default marked" src="assets/modules-light.png">
+</picture>
+
+<details>
+<summary>What each one shows</summary>
+
+<!-- modules:start -->
+| Name | On | What it shows |
+|---|---|---|
+| **Session** | | |
+| `model` | ● | Model name, with tokens used out of the context window |
+| `effort` | ● | Reasoning effort level |
+| `think` | ● | Extended thinking on or off |
+| `fast` | ● | Fast mode on or off |
+| `style` | ● | Output style |
+| `agent` | ● | Agent the session runs as (--agent) |
+| `vim` | ● | Vim mode |
+| `version` | ● | Claude Code version |
+| `session` |  | Session name. It can mention a project, so it is off by default |
+| `session_id` |  | First characters of the session id |
+| **Place** | | |
+| `user` | ● | Your username. Change what it says with: set username NAME |
+| `host` |  | Machine name |
+| `dir` |  | Current folder name |
+| `path` |  | Current folder path, shortened |
+| `project` |  | Project folder, plus the subfolder you are in |
+| `repo` |  | Remote owner/name, clickable |
+| `added_dirs` |  | Folders added with /add-dir |
+| `os` |  | Operating system and architecture |
+| `shell` |  | Your shell |
+| `load` |  | System load. Turns yellow above your core count |
+| `ssh` |  | Shown while connected over SSH |
+| `tmux` |  | Shown while inside tmux |
+| **Git** | | |
+| `git` | ● | Branch, with * when there are changes |
+| `git_sync` | ● | Commits ahead of and behind upstream |
+| `git_changes` | ● | Staged, modified, untracked and conflicted files |
+| `git_op` | ● | Merge, rebase, cherry-pick, revert or bisect in progress |
+| `git_stash` |  | Number of stashes |
+| `git_diff` |  | Lines added and removed in the working tree |
+| `git_age` |  | Time since the last commit |
+| `git_tag` |  | Tag on the current commit |
+| `git_sha` |  | Short commit id |
+| `upstream` |  | Upstream branch |
+| `pr` | ● | Open pull request and its review state, clickable |
+| `worktree` | ● | Linked worktree name |
+| `lines` | ● | Lines added and removed this session |
+| **Context** | | |
+| `ctx` | ● | Context window gauge |
+| `ctx_tokens` |  | Tokens used out of the window |
+| `ctx_left` |  | Tokens left in the window |
+| `ctx_trend` |  | Sparkline of context use |
+| `ctx_eta` |  | Estimated time until the window is full |
+| `ctx_rate` |  | How fast context is filling, percent per minute |
+| `big_ctx` |  | Warns when the session has passed 200k tokens |
+| `compactions` | ● | Times this session has been compacted |
+| **Limits** | | |
+| `h5` | ● | 5-hour limit gauge, time to reset, and where you are heading |
+| `d7` | ● | 7-day limit gauge, time to reset, and where you are heading |
+| `h5_forecast` | ● | Warns when you will hit the 5-hour limit before it resets |
+| `d7_forecast` |  | Warns when you will hit the 7-day limit before it resets |
+| `h5_reset` |  | Clock time the 5-hour limit resets |
+| `d7_reset` |  | Day and time the 7-day limit resets |
+| `h5_rate` |  | How fast the 5-hour limit is being used, percent per hour |
+| `h5_trend` |  | Sparkline of 5-hour limit use |
+| **Pace** | | |
+| `duration` | ● | How long this session has been open |
+| `api_time` |  | Time spent waiting on the model |
+| `speed` | ● | Output speed, tokens per second of model time |
+| `burn` | ● | Tokens added to context per minute |
+| `last_turn` |  | How long the last turn took |
+| `turns` | ● | Turns completed this session |
+| `messages` |  | Messages in the conversation |
+| `clock` | ● | Current time. Switch with: set clock 12h |
+| `date` |  | Today's date |
+| **Cache** | | |
+| `cache` | ● | Prompt cache countdown, or COLD once it has expired |
+| `cache_hit` |  | Prompt cache hit rate |
+| `cache_miss` |  | Cache misses, and why the last one happened |
+| `cache_tokens` |  | Tokens written to the cache, and tokens rewritten after misses |
+| **Activity** | | |
+| `tool` | ● | Tool running right now, with its target and elapsed time |
+| `agents` | ● | Subagents running in the foreground and background |
+| `todo` | ● | Todo progress and the current item |
+| `todo_bar` |  | Todo progress as a gauge |
+| `tools` | ● | Tool calls this session |
+| `top_tool` |  | Most used tool this session |
+| `skills` | ● | Skills used this session, and the latest one |
+| `mcp` |  | MCP servers called this session |
+<!-- modules:end -->
+
+</details>
+
+Subagents get the same treatment in Claude Code's agent panel:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/agents-dark.png">
+  <img alt="Neon rows in the agent panel, one per subagent, with model, time, token trend and context use" src="assets/agents-light.png">
+</picture>
 
 ## Make it yours
 
@@ -43,8 +146,10 @@ agent panel, with their model, elapsed time, token trend and share of their cont
 limit-bar customize
 ```
 
-Space turns a module on or off, the arrow keys change its row, `[` and `]` reorder it, and
-`g`, `w`, `u` and `c` change the gauge design, gauge width, used or left, and the clock.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/editor-dark.png">
+  <img alt="The live editor: the bar at the top, the list of modules below it, and the keys to change them" src="assets/editor-light.png">
+</picture>
 
 **The same from the command line:**
 
@@ -142,7 +247,17 @@ format one at a time, then the least important ones leave, and text is only cut 
 resort. You set the order with `priority`, and a rule can switch to a different layout at
 any width.
 
-![The bar at four terminal widths](assets/responsive.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/responsive-dark.png">
+  <img alt="The same bar at 124, 100, 80 and 60 columns" src="assets/responsive-light.png">
+</picture>
+
+## How it works
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/flow-dark.png">
+  <img alt="What the bar reads, how it decides, and what you see" src="assets/flow-light.png">
+</picture>
 
 ## It tells you what it is doing
 
@@ -239,5 +354,8 @@ The design was informed by studying
 worth a look. limit-bar is a separate codebase and contains none of their code.
 
 ## License
+
+Not affiliated with Anthropic.
+
 
 [MIT](LICENSE)
