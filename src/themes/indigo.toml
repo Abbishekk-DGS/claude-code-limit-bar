@@ -1,0 +1,115 @@
+# indigo: three lines. Gauges with the percentage inside, then where you are, then
+# how the session is set up. Main text uses your terminal's own colour, and the rest
+# are mid-tones, so it reads on light and dark backgrounds alike.
+description = "Three lines with the percentage inside each gauge. Reads on light and dark."
+
+[palette]
+accent = "#6366f1"
+muted  = "#6e7781"
+faint  = "#6e7781"
+track  = "#4b5563"
+ok     = "#6366f1"
+warn   = "#c2610c"
+hot    = "#dc2626"
+white  = "#ffffff"
+
+[settings]
+bar = "meter"
+
+[style]
+model = "bold"
+
+[bars.meter]
+left = "["
+right = "]"
+label = true
+fill = "█"
+track = true
+color = "level"
+empty_style = "track"
+label_fill = "white"
+label_track = "white"
+
+[bars.ascii]
+left = "["
+right = "]"
+label = true
+fill = "#"
+empty = "-"
+empty_style = "muted"
+
+[glyphs]
+alarm = { unicode = "⏰", ascii = "@" }
+to    = { unicode = "→", ascii = ">" }
+into  = { unicode = "↳", ascii = ">" }
+gear  = { unicode = "⚙", ascii = "*" }
+
+[var]
+h5_color = "severity(limit.h5.projected ?? limit.h5.pct)"
+d7_color = "severity(limit.d7.projected ?? limit.d7.pct)"
+
+# ---- gauges -----------------------------------------------------------------
+[module.h5]
+format = "5h{limit.h5.pct | bar:10}{if limit.h5.left}{g.alarm}<=severity(limit.h5.pct)>{limit.h5.left | dur:2:'pad'}</>{end} {if limit.h5.projected != null}<=var.h5_color>{g.to}{limit.h5.projected | round}%</>{else}<muted>{g.to}--</>{end}"
+compact = "5h <=severity(limit.h5.pct)>{limit.h5.pct | round}%</>{if limit.h5.left} <muted>{limit.h5.left | dur:2:'pad'}</>{end}"
+style = ""
+priority = 80
+
+[module.d7]
+format = "7d{limit.d7.pct | bar:10}{if limit.d7.left}{g.alarm}<=severity(limit.d7.pct)>{limit.d7.left | dur:2:'pad'}</>{end} {if limit.d7.projected != null}<=var.d7_color>{g.to}{limit.d7.projected | round}%</>{else}<muted>{g.to}--</>{end}"
+compact = "7d <=severity(limit.d7.pct)>{limit.d7.pct | round}%</>{if limit.d7.left} <muted>{limit.d7.left | dur:2:'pad'}</>{end}"
+style = ""
+priority = 60
+
+[module.model]
+format = "<bold>{model.name}</>{if ctx.tokens && ctx.size}<=ctx.pct >= 60 ? severity(ctx.pct) : 'muted'>({ctx.tokens | tokens}/{ctx.size | tokens})</>{end}"
+compact = "<bold>{model.name}</>"
+style = ""
+priority = 90
+
+[module.cache]
+if = "true"   # a new session has no cache yet, which shows as COLD
+format = "cache {if cache.warm && cache.left}<=cache.left < 60 ? 'hot' : cache.left < 300 ? 'warn' : 'accent'>{cache.left | clock}</>{else}<hot>COLD</>{end}"
+compact = "{if cache.warm && cache.left}<=cache.left < 60 ? 'hot' : cache.left < 300 ? 'warn' : 'accent'>{cache.left | dur:1}</>{else}<hot>COLD</>{end}"
+style = ""
+priority = 40
+
+# ---- place ------------------------------------------------------------------
+[module.place]
+format = "<muted>{g.into}</> <bold>{dir.name}</> {if git.repo}<accent>{g.branch} {git.branch ?? git.oid | trunc:28}</>{if git.dirty}<warn>{g.dirty}</>{end}{else}<muted italic>(no git)</>{end}"
+compact = "<muted>{g.into}</> <bold>{dir.name}</>"
+style = ""
+priority = 90
+
+[module.version]
+style = "muted"
+
+# ---- session settings -------------------------------------------------------
+[module.set_effort]
+if = "effort.level"
+format = "<muted>{g.gear} effort:</>{effort.level}"
+priority = 50
+
+[module.set_think]
+format = "<muted>think:</>{if thinking}<accent>on</>{else}off{end}"
+priority = 40
+
+[module.set_fast]
+format = "<muted>fast:</>{if fast}<accent>on</>{else}off{end}"
+priority = 30
+
+[module.set_style]
+format = "<muted>style:</>{output_style | default:'default'}"
+priority = 20
+
+[[line]]
+sep = " <muted>|</> "
+left = ["h5", "d7", "model", "cache"]
+
+[[line]]
+sep = " <muted>{g.dot}</> "
+left = ["place", "version"]
+
+[[line]]
+sep = " <muted>{g.dot}</> "
+left = ["set_effort", "set_think", "set_fast", "set_style"]

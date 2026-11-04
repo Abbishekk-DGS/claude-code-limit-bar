@@ -1,0 +1,61 @@
+# gameboy: only the four greens of the original handheld. With no red to warn in, a
+# limit that is close shows as the darkest shade, in bold.
+extends = "indigo"
+description = "Only the four greens of the original handheld."
+
+[palette]
+panel  = "#9bbc0f"
+light  = "#8bac0f"
+mid    = "#306230"
+ink    = "#0f380f"
+text   = "#0f380f"
+accent = "#0f380f"
+muted  = "#306230"
+track  = "#8bac0f"
+ok     = "#306230"
+warn   = "#0f380f"
+hot    = "#0f380f"
+
+[bars.meter]
+cap_style = "ink"
+label_fill = "panel"
+label_track = "ink"
+
+[bars.ascii]
+empty_style = "mid"
+
+[glyphs]
+alarm = { unicode = "◷", ascii = "@" }
+into  = { unicode = "▶", ascii = ">" }
+gear  = { unicode = "★", ascii = "*" }
+
+[module.place]
+format = "<ink>{g.into}</> <bold>{dir.name}</> {if git.repo}<ink>{g.branch} {git.branch ?? git.oid | trunc:28}</>{if git.dirty}<ink bold>{g.dirty}</>{end}{else}<muted italic>(no git)</>{end}"
+compact = "<ink>{g.into}</> <bold>{dir.name}</>"
+
+[module.set_effort]
+format = "<ink>{g.gear}</> <muted>effort:</>{effort.level}"
+
+[[line]]
+style = "fg:text on:panel"
+full = true
+prefix = " "
+suffix = " "
+sep = " <muted>|</> "
+left = ["h5", "d7", "model", "cache"]
+
+[[line]]
+style = "fg:text on:panel"
+full = true
+prefix = " "
+suffix = " "
+sep = " <muted>{g.dot}</> "
+left = ["place", "version"]
+
+[[line]]
+style = "fg:text on:panel"
+full = true
+prefix = " "
+suffix = " "
+sep = " <muted>{g.dot}</> "
+left = ["set_effort", "set_think", "set_fast", "set_style"]

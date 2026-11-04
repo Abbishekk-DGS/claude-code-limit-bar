@@ -1,0 +1,19 @@
+# Make it hard to miss that you are working directly on a protected branch.
+theme = "graphite"
+
+[style]
+danger_chip = "#ffffff bold on:hot"
+
+[var]
+protected = "git.branch == 'main' || git.branch == 'master' || starts(git.branch, 'release/')"
+
+[module.protected]
+if = "var.protected && git.dirty"
+format = " uncommitted changes on {git.branch} "
+compact = " {git.branch}* "
+style = "danger_chip"
+priority = 95
+
+[[line]]
+left = ["protected", "model", "dir", "git"]
+right = ["ctx", "h5"]

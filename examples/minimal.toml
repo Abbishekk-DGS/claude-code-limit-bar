@@ -1,0 +1,4 @@
+# The smallest useful bar: model, folder and how full the context is.
+[[line]]
+sep = " · "
+left = ["model", "dir", "ctx"]

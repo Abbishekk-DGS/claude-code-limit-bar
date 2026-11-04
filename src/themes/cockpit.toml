@@ -1,0 +1,102 @@
+# cockpit: a two-line instrument panel in amber phosphor. Shows trends, forecasts
+# and countdowns, and raises a caution annunciator when a limit is close.
+description = "Two-line instrument panel with trends, forecasts and a caution annunciator."
+
+[palette]
+text   = "#ffcf70"
+amber  = "#f5a524"
+muted  = "#a87c33"
+faint  = "#54401c"
+accent = "#ffe2a8"
+ok     = "#9fd356"
+warn   = "#ffb627"
+hot    = "#ff4d3d"
+add    = "#9fd356"
+del    = "#ff7a66"
+
+[settings]
+bar = "gauge"
+sep = "  "
+
+[style]
+model = "accent bold"
+label = "muted"
+caution = "#1a0d00 bold on:hot"
+
+[var]
+master_caution = "severity(ctx.pct) == 'hot' || severity(limit.h5.pct) == 'hot' || severity(limit.d7.pct) == 'hot' || (limit.h5.hit_in != null && limit.h5.pct >= 60)"
+
+[bars.gauge]
+left = "▕"
+right = "▏"
+fill = "█"
+empty = "█"
+track = true
+partial = ["▏", "▎", "▍", "▌", "▋", "▊", "▉"]
+color = "level"
+empty_style = "faint"
+cap_style = "muted"
+
+[module.model]
+format = "{model.name | upper}"
+compact = "{model.short | upper}"
+[module.effort]
+format = "{effort.level | upper}"
+style = "muted"
+[module.dir]
+format = "{dir.name | upper}"
+style = "text"
+[module.git]
+format = "{git.branch | upper | trunc:26}{if git.dirty}<warn>{g.dirty}</>{end}"
+compact = "{git.branch | upper | trunc:14}"
+style = "text"
+[module.git_sync]
+format = "{if git.ahead}{g.ahead}{git.ahead}{end}{if git.behind}{g.behind}{git.behind}{end}"
+[module.duration]
+format = "<label>T+</>{cost.duration | clock}"
+style = "text"
+[module.cost]
+format = "{cost.usd | money}"
+style = "accent"
+[module.cost_rate]
+format = "{cost.per_hour | money}/H"
+[module.cache]
+if = "cache.observed"
+format = "<label>CACHE</> {cache.hit | round}%{if cache.warm && cache.left} <=cache.left < 300 ? 'hot' : 'muted'>{cache.left | clock}</>{else} <warn>COLD</>{end}"
+compact = "<label>C</> {cache.hit | round}%"
+style = "text"
+[module.ctx]
+format = "<label>CTX</> {ctx.pct | bar:10} <=severity(ctx.pct)>{ctx.pct | round | lpad:3}%</>"
+compact = "<label>CTX</> <=severity(ctx.pct)>{ctx.pct | round}%</>"
+style = "text"
+[module.ctx_trend]
+format = "{history.ctx | spark:10}"
+style = "amber"
+[module.ctx_eta]
+format = "<label>FULL</> T-{ctx.eta | dur:1 | upper}"
+compact = "T-{ctx.eta | dur:1 | upper}"
+style = "= ctx.eta < 900 ? 'hot' : ctx.eta < 3600 ? 'warn' : 'text'"
+[module.h5]
+format = "<label>5H</> {limit.h5.pct | bar:8} <=severity(limit.h5.pct)>{limit.h5.pct | round | lpad:3}%</>{if limit.h5.projected} <label>→{limit.h5.projected | round}%</>{end}{if limit.h5.left} <label>R {limit.h5.left | dur | upper}</>{end}"
+compact = "<label>5H</> <=severity(limit.h5.pct)>{limit.h5.pct | round}%</>"
+style = "text"
+[module.d7]
+format = "<label>7D</> {limit.d7.pct | bar:8} <=severity(limit.d7.pct)>{limit.d7.pct | round | lpad:3}%</>"
+compact = "<label>7D</> <=severity(limit.d7.pct)>{limit.d7.pct | round}%</>"
+style = "text"
+[module.caution]
+if = "var.master_caution"
+format = " MASTER CAUTION "
+compact = " CAUTION "
+style = "caution"
+priority = 95
+
+[[line]]
+sep = " <faint>│</> "
+left  = ["caution", "model", "effort", "dir", "git", "git_sync", "duration"]
+right = ["cache"]
+
+[[line]]
+sep = "   "
+left  = ["ctx", "ctx_trend", "ctx_eta"]
+right = ["h5", "d7", "spend"]

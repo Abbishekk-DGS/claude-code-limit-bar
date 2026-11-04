@@ -1,0 +1,42 @@
+# limit-bar config. Everything here is optional: delete what you do not need.
+# Reference: docs/CONFIG.md  |  Check it: limit-bar validate  |  See values: limit-bar fields
+theme = "neon"   # limit-bar themes lists them all
+
+[settings]
+# charset = "nerd"   # nerd | unicode | ascii. Use nerd if your font has the glyphs.
+# warn = 60          # severity() thresholds used by gauges and colours
+# hot  = 85
+
+# Recolour anything. Names defined here can be used in any style.
+# [palette]
+# accent = "#7fe3dd"
+
+# Change how a built-in module looks.
+# [module.ctx]
+# format = "context {ctx.pct | round}%"
+
+# Add your own module, from any command. It runs in the background, never inline.
+# [source.kube]
+# command = "kubectl config current-context"
+# every = "30s"
+#
+# [module.kube]
+# if = "source.kube.value"
+# format = "k8s {source.kube.value}"
+# style = "accent"
+
+# Replace the whole layout. Each [[line]] is one row in the terminal.
+# [[line]]
+# left  = ["model", "dir", "git"]
+# right = ["ctx", "kube"]
+
+# Or keep the theme's layout and add a row under it. This follows you between themes.
+# [[append_line]]
+# left  = ["user", "path", "session"]
+# right = ["ctx_tokens", "duration", "version", "clock"]
+
+# React to state. A rule can override anything, including the whole theme.
+# [[when]]
+# name = "alarm when context is nearly full"
+# if = "ctx.pct >= 90"
+# theme = "cockpit"

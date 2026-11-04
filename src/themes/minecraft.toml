@@ -1,0 +1,63 @@
+# minecraft: each line is a layer of ground, grass over dirt over stone, in the game's
+# own chat colours, with blocky gauges.
+extends = "indigo"
+description = "Each line a layer of ground: grass, dirt, stone. Blocky gauges, chat colours."
+
+[palette]
+grass  = "#2f5d1e"
+dirt   = "#4b3621"
+stone  = "#494949"
+text   = "#ffffff"
+gold   = "#ffaa00"
+accent = "#55ffff"
+muted  = "#c6c6c6"
+track  = "#1c1c1c"
+ok     = "#55ff55"
+warn   = "#ffaa00"
+hot    = "#ff5555"
+dark   = "#0c2306"
+
+[bars.meter]
+dither = 0.16
+cap_style = "gold"
+label_fill = "dark"
+label_track = "text"
+
+[glyphs]
+into = { unicode = "⛏", ascii = ">" }
+gear = { unicode = "⚒", ascii = "*" }
+
+[module.model]
+format = "<gold bold>{model.name}</>{if ctx.tokens && ctx.size}<=ctx.pct >= 60 ? severity(ctx.pct) : 'muted'>({ctx.tokens | tokens}/{ctx.size | tokens})</>{end}"
+compact = "<gold bold>{model.name}</>"
+
+[module.place]
+format = "<gold>{g.into}</> <bold>{dir.name}</> {if git.repo}<accent>{g.branch} {git.branch ?? git.oid | trunc:28}</>{if git.dirty}<warn>{g.dirty}</>{end}{else}<muted italic>(no git)</>{end}"
+compact = "<gold>{g.into}</> <bold>{dir.name}</>"
+
+[module.set_effort]
+format = "<gold>{g.gear}</> <muted>effort:</>{effort.level}"
+
+[[line]]
+style = "fg:text on:grass"
+full = true
+prefix = " "
+suffix = " "
+sep = " <muted>|</> "
+left = ["h5", "d7", "model", "cache"]
+
+[[line]]
+style = "fg:text on:dirt"
+full = true
+prefix = " "
+suffix = " "
+sep = " <muted>{g.dot}</> "
+left = ["place", "version"]
+
+[[line]]
+style = "fg:text on:stone"
+full = true
+prefix = " "
+suffix = " "
+sep = " <muted>{g.dot}</> "
+left = ["set_effort", "set_think", "set_fast", "set_style"]

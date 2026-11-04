@@ -1,0 +1,21 @@
+# Latest CI run for this branch, using the GitHub CLI and its JSON output.
+theme = "graphite"
+
+[source.ci]
+command = "gh run list --branch \"$(git branch --show-current)\" --limit 1 --json conclusion,status"
+every = "1m"
+timeout = "8s"
+parse = "json"
+
+[var]
+ci_state = "source.ci.data.0.conclusion ?? source.ci.data.0.status"
+
+[module.ci]
+if = "var.ci_state"
+format = "ci {var.ci_state}"
+style = "= var.ci_state == 'success' ? 'ok' : var.ci_state == 'failure' ? 'hot bold' : 'warn'"
+priority = 60
+
+[[line]]
+left = ["model", "dir", "git", "ci"]
+right = ["ctx", "h5"]

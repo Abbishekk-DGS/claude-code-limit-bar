@@ -1,0 +1,13 @@
+{
+  "name": "claude-code-limit-bar",
+  "version": "1.0.0",
+  "description": "A Claude Code status line you build entirely from a dotfile: layouts, modules, themes and reactive rules, with zero dependencies.",
+  "type": "module",
+  "bin": { "claude-code-limit-bar": "bin/limit-bar.js", "limit-bar": "bin/limit-bar.js" },
+  "files": ["bin", "src", "examples", "docs", "LICENSE", "README.md"],
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test test/*.test.js" },
+  "keywords": ["claude-code", "statusline", "status-bar", "dotfiles", "terminal", "powerline", "toml"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/Abbishekk-DGS/claude-code-limit-bar.git" }
+}

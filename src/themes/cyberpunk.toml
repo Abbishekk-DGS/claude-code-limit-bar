@@ -1,0 +1,81 @@
+# cyberpunk: black with hazard yellow, cyan and hot magenta, in capitals.
+extends = "indigo"
+description = "Black, hazard yellow, cyan and magenta. All capitals, with T-minus countdowns."
+
+[palette]
+panel   = "#0a0a12"
+text    = "#e8e6d9"
+yellow  = "#fcee0a"
+magenta = "#ff2a6d"
+accent  = "#00f0ff"
+muted   = "#8a8fb0"
+track   = "#2a2a44"
+ok      = "#00f0ff"
+warn    = "#fcee0a"
+hot     = "#ff2a6d"
+dark    = "#05050a"
+
+[bars.meter]
+cap_style = "yellow"
+label_fill = "dark"
+label_track = "text"
+
+[glyphs]
+alarm = { unicode = "T-", ascii = "T-" }
+into  = { unicode = ">>", ascii = ">>" }
+gear  = { unicode = "//", ascii = "//" }
+
+[module.h5]
+format = "<yellow bold>5H</>{limit.h5.pct | bar:10} {if limit.h5.left}<=severity(limit.h5.pct)>{g.alarm}{limit.h5.left | dur:2:'pad' | upper}</>{end} {if limit.h5.projected != null}<=var.h5_color>{g.to}{limit.h5.projected | round}%</>{else}<muted>{g.to}--</>{end}"
+compact = "<yellow bold>5H</> <=severity(limit.h5.pct)>{limit.h5.pct | round}%</>{if limit.h5.left} <muted>{limit.h5.left | dur:2:'pad' | upper}</>{end}"
+
+[module.d7]
+format = "<yellow bold>7D</>{limit.d7.pct | bar:10} {if limit.d7.left}<=severity(limit.d7.pct)>{g.alarm}{limit.d7.left | dur:2:'pad' | upper}</>{end} {if limit.d7.projected != null}<=var.d7_color>{g.to}{limit.d7.projected | round}%</>{else}<muted>{g.to}--</>{end}"
+compact = "<yellow bold>7D</> <=severity(limit.d7.pct)>{limit.d7.pct | round}%</>{if limit.d7.left} <muted>{limit.d7.left | dur:2:'pad' | upper}</>{end}"
+
+[module.model]
+format = "<yellow bold>{model.name | upper}</>{if ctx.tokens && ctx.size}<=ctx.pct >= 60 ? severity(ctx.pct) : 'muted'>({ctx.tokens | tokens | upper}/{ctx.size | tokens | upper})</>{end}"
+compact = "<yellow bold>{model.name | upper}</>"
+
+[module.cache]
+format = "<muted>CACHE</> {if cache.warm && cache.left}<=cache.left < 60 ? 'hot' : cache.left < 300 ? 'warn' : 'accent'>{cache.left | clock}</>{else}<hot bold>COLD</>{end}"
+
+[module.place]
+format = "<magenta bold>{g.into}</> <yellow bold>{dir.name | upper}</> {if git.repo}<accent>{git.branch ?? git.oid | trunc:28 | upper}</>{if git.dirty}<hot>{g.dirty}</>{end}{else}<muted>[NO GIT]</>{end}"
+compact = "<magenta bold>{g.into}</> <yellow bold>{dir.name | upper}</>"
+
+[module.version]
+format = "V{version}"
+
+[module.set_effort]
+format = "<magenta bold>{g.gear}</> <muted>EFFORT:</>{effort.level | upper}"
+[module.set_think]
+format = "<muted>THINK:</>{if thinking}<accent>ON</>{else}OFF{end}"
+[module.set_fast]
+format = "<muted>FAST:</>{if fast}<accent>ON</>{else}OFF{end}"
+[module.set_style]
+format = "<muted>STYLE:</>{output_style | default:'default' | upper}"
+
+[[line]]
+style = "fg:text on:panel"
+full = true
+prefix = " "
+suffix = " "
+sep = " <magenta>//</> "
+left = ["h5", "d7", "model", "cache"]
+
+[[line]]
+style = "fg:text on:panel"
+full = true
+prefix = " "
+suffix = " "
+sep = " <magenta>//</> "
+left = ["place", "version"]
+
+[[line]]
+style = "fg:text on:panel"
+full = true
+prefix = " "
+suffix = " "
+sep = " <magenta>//</> "
+left = ["set_effort", "set_think", "set_fast", "set_style"]

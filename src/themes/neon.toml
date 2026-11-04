@@ -1,0 +1,68 @@
+# neon: sign-lit colours on black. Gauges run blue to violet to pink, so the fuller
+# the gauge, the hotter its end.
+extends = "indigo"
+description = "Sign-lit colours on black, with gradient gauges running blue to pink."
+
+[palette]
+panel  = "#07070d"
+text   = "#f2f2ff"
+blue   = "#0090ff"
+cyan   = "#00f5ff"
+violet = "#9d2bff"
+pink   = "#ff2bd6"
+lime   = "#39ff14"
+accent = "#00f5ff"
+muted  = "#8585a8"
+track  = "#22223a"
+ok     = "#00f5ff"
+warn   = "#ffe600"
+hot    = "#ff2bd6"
+
+[bars.meter]
+color = "ramp"
+ramp = ["blue", "violet", "pink"]
+cap_style = "pink"
+
+[glyphs]
+alarm = { unicode = "⚡", ascii = "!" }
+into  = { unicode = "▸", ascii = ">" }
+gear  = { unicode = "✦", ascii = "*" }
+
+[module.model]
+format = "<grad:cyan,pink bold>{model.name}</>{if ctx.tokens && ctx.size}<=ctx.pct >= 60 ? severity(ctx.pct) : 'muted'>({ctx.tokens | tokens}/{ctx.size | tokens})</>{end}"
+compact = "<grad:cyan,pink bold>{model.name}</>"
+
+[module.place]
+format = "<pink>{g.into}</> <grad:pink,violet bold>{dir.name}</> {if git.repo}<lime>{g.branch} {git.branch ?? git.oid | trunc:28}</>{if git.dirty}<warn>{g.dirty}</>{end}{else}<muted italic>(no git)</>{end}"
+compact = "<pink>{g.into}</> <grad:pink,violet bold>{dir.name}</>"
+
+[module.set_effort]
+format = "<pink>{g.gear}</> <muted>effort:</>{effort.level}"
+[module.set_think]
+format = "<muted>think:</>{if thinking}<lime>on</>{else}off{end}"
+[module.set_fast]
+format = "<muted>fast:</>{if fast}<lime>on</>{else}off{end}"
+
+[[line]]
+style = "fg:text on:panel"
+full = true
+prefix = " "
+suffix = " "
+sep = " <pink>┃</> "
+left = ["h5", "d7", "model", "cache"]
+
+[[line]]
+style = "fg:text on:panel"
+full = true
+prefix = " "
+suffix = " "
+sep = " <violet>{g.dot}</> "
+left = ["place", "version"]
+
+[[line]]
+style = "fg:text on:panel"
+full = true
+prefix = " "
+suffix = " "
+sep = " <violet>{g.dot}</> "
+left = ["set_effort", "set_think", "set_fast", "set_style"]

@@ -1,0 +1,351 @@
+# Every built-in module is plain config. Nothing here is special: copy any table
+# into your own config.toml and change it, or use it as a reference for your own.
+theme = "neon"
+
+[settings]
+charset = "unicode"   # nerd | unicode | ascii
+color   = "auto"      # auto | truecolor | 256 | 16 | none
+margin  = 4           # Claude Code indents 2 columns and cuts text 2 before the edge
+warn    = 60          # severity() turns "warn" at this value
+hot     = 85          # severity() turns "hot" at this value
+bar     = "block"     # default gauge from [bars]
+git_ttl = 2           # seconds a git status result is reused
+ctx_limit = 100       # ctx.eta counts down to this percentage
+links   = true        # clickable OSC 8 links
+notices = true        # show "run limit-bar trust" hints
+
+[palette]
+text  = "#d8dee4"
+muted = "#8b949e"
+faint = "#484f58"
+accent = "#58a6ff"
+ok    = "#3fb950"
+warn  = "#d29922"
+hot   = "#f85149"
+add   = "#3fb950"
+del   = "#f85149"
+
+[style]
+model = "text bold"
+label = "muted"
+
+[glyphs]
+branch   = { nerd = "\ue0a0", unicode = "⎇", ascii = "git:" }
+dirty    = { nerd = "*", unicode = "*", ascii = "*" }
+clean    = { nerd = "\uf00c", unicode = "✓", ascii = "ok" }
+ahead    = { nerd = "\uf062", unicode = "↑", ascii = "^" }
+behind   = { nerd = "\uf063", unicode = "↓", ascii = "v" }
+dot      = { unicode = "·", ascii = "." }
+warn     = { nerd = "\uf071", unicode = "▲", ascii = "!" }
+clock    = { nerd = "\uf017", unicode = "◷", ascii = "t" }
+pr       = { nerd = "\uf407", unicode = "⇄", ascii = "PR" }
+tool     = { nerd = "\uf0ad", unicode = "◐", ascii = ">" }
+todo     = { nerd = "\uf0ae", unicode = "☰", ascii = "todo" }
+cache    = { nerd = "\uf1c0", unicode = "◉", ascii = "cache" }
+worktree = { nerd = "\uf1bb", unicode = "⑂", ascii = "wt" }
+agent    = { nerd = "\uf544", unicode = "◆", ascii = "@" }
+pl_right = { nerd = "\ue0b0", unicode = "▌", ascii = "" }
+pl_left  = { nerd = "\ue0b2", unicode = "▐", ascii = "" }
+pl_thin_right = { nerd = "\ue0b1", unicode = "│", ascii = "|" }
+pl_thin_left  = { nerd = "\ue0b3", unicode = "│", ascii = "|" }
+cap_left = { nerd = "\ue0b6", unicode = "▐", ascii = "" }
+cap_right = { nerd = "\ue0b4", unicode = "▌", ascii = "" }
+
+[bars.block]
+fill = "█"
+empty = "█"
+track = true
+partial = ["▏", "▎", "▍", "▌", "▋", "▊", "▉"]
+empty_style = "faint"
+
+[bars.thin]
+fill = "━"
+empty = "╌"
+empty_style = "faint"
+
+[bars.ticks]
+fill = "▮"
+empty = "▯"
+empty_style = "faint"
+
+[bars.dots]
+fill = "●"
+empty = "○"
+empty_style = "faint"
+
+[bars.ascii]
+fill = "#"
+empty = "-"
+empty_style = "faint"
+
+# ---- identity ---------------------------------------------------------------
+[module.model]
+format = "{model.name}"
+compact = "{model.short}"
+style = "model"
+priority = 90
+
+[module.effort]
+if = "effort.level"
+format = "{effort.level}"
+style = "muted"
+priority = 20
+
+[module.fast]
+if = "fast"
+format = "fast"
+style = "accent"
+priority = 30
+
+[module.thinking]
+if = "thinking"
+format = "thinking"
+style = "muted"
+priority = 10
+
+[module.output_style]
+if = "output_style && output_style != 'default'"
+format = "{output_style}"
+style = "muted"
+priority = 10
+
+[module.agent]
+if = "agent.name"
+format = "{g.agent} {agent.name}"
+style = "accent"
+priority = 40
+
+[module.vim]
+if = "vim.mode"
+format = "{vim.mode}"
+style = "= vim.mode == 'INSERT' ? 'ok bold' : 'accent bold'"
+priority = 60
+
+[module.version]
+if = "version"
+format = "v{version}"
+style = "faint"
+priority = 5
+
+[module.session]
+if = "session.name"
+format = "{session.name | trunc:24}"
+style = "muted"
+priority = 15
+
+# ---- who and where ----------------------------------------------------------
+[module.user]
+if = "user.name"
+format = "{user.name}"
+style = "muted"
+priority = 22
+
+[module.host]
+if = "user.host"
+format = "{user.host | trunc:24}"
+style = "muted"
+priority = 12
+
+[module.user_host]
+if = "user.name"
+format = "{user.name}{if user.host}<faint>@</>{user.host | trunc:24}{end}"
+compact = "{user.name}"
+style = "muted"
+priority = 22
+
+[module.os]
+format = "{system.os} {system.arch}"
+compact = "{system.os}"
+style = "muted"
+priority = 8
+
+[module.shell]
+if = "system.shell"
+format = "{system.shell}"
+style = "muted"
+priority = 8
+
+[module.load]
+format = "load {system.load | fixed:1}"
+style = "= system.load > system.cores ? 'warn' : 'muted'"
+priority = 8
+
+# ---- place ------------------------------------------------------------------
+[module.dir]
+format = "{dir.name}"
+style = "text"
+priority = 70
+
+[module.path]
+format = "{dir.short}"
+compact = "{dir.name}"
+style = "text"
+priority = 70
+
+[module.project]
+format = "{project.name}{if project.is_subdir}<muted>/{project.relative}</>{end}"
+compact = "{project.name}"
+style = "text"
+priority = 70
+
+[module.repo]
+if = "repo.slug"
+format = "{repo.slug}"
+compact = "{repo.name}"
+link = "{repo.url}"
+style = "muted"
+priority = 25
+
+[module.worktree]
+if = "worktree.name"
+format = "{g.worktree} {worktree.name}"
+style = "accent"
+priority = 35
+
+[module.pr]
+if = "pr.number"
+format = "{g.pr} #{pr.number}{if pr.state} <muted>{pr.state}</>{end}"
+compact = "#{pr.number}"
+link = "{pr.url}"
+style = "accent"
+priority = 45
+
+# ---- git --------------------------------------------------------------------
+[module.git]
+if = "git.branch"
+format = "{g.branch} {git.branch | trunc:28}{if git.dirty}<warn>{g.dirty}</>{end}"
+compact = "{git.branch | trunc:16}{if git.dirty}<warn>{g.dirty}</>{end}"
+style = "accent"
+priority = 65
+
+[module.git_changes]
+if = "git.dirty"
+format = "{if git.staged}<ok>+{git.staged}</> {end}{if git.modified}<warn>~{git.modified}</> {end}{if git.untracked}<muted>?{git.untracked}</>{end}"
+style = "muted"
+priority = 30
+
+[module.git_sync]
+if = "git.ahead || git.behind"
+format = "{if git.ahead}{g.ahead}{git.ahead}{end}{if git.behind}{g.behind}{git.behind}{end}"
+style = "muted"
+priority = 30
+
+[module.lines]
+if = "cost.lines"
+format = "<add>+{cost.added}</> <del>-{cost.removed}</>"
+priority = 25
+
+# ---- context window ---------------------------------------------------------
+[module.ctx]
+if = "ctx.pct != null"
+format = "ctx {ctx.pct | bar:10} <=severity(ctx.pct)>{ctx.pct | round}%</>"
+compact = "ctx <=severity(ctx.pct)>{ctx.pct | round}%</>"
+style = "muted"
+priority = 85
+
+[module.ctx_tokens]
+if = "ctx.tokens && ctx.size"
+format = "{ctx.tokens | tokens}/{ctx.size | tokens}"
+style = "muted"
+priority = 15
+
+[module.ctx_trend]
+if = "len(history.ctx) >= 2"
+format = "{history.ctx | spark:12}"
+style = "muted"
+priority = 12
+
+[module.ctx_eta]
+if = "ctx.eta"
+format = "full in {ctx.eta | dur:1}"
+compact = "{ctx.eta | dur:1}"
+style = "= ctx.eta < 900 ? 'hot' : ctx.eta < 3600 ? 'warn' : 'muted'"
+priority = 40
+
+# ---- rate limits ------------------------------------------------------------
+[module.h5]
+if = "limit.h5.pct != null"
+format = "5h <=severity(limit.h5.pct)>{limit.h5.pct | round}%</>{if limit.h5.left} <muted>{limit.h5.left | dur}</>{end}"
+compact = "5h <=severity(limit.h5.pct)>{limit.h5.pct | round}%</>"
+style = "muted"
+priority = 75
+
+# Only speaks up once usage is high enough for a forecast to be worth acting on.
+[module.h5_forecast]
+if = "limit.h5.hit_in && limit.h5.pct >= 50"
+format = "{g.warn} limit in {limit.h5.hit_in | dur}"
+compact = "{g.warn} {limit.h5.hit_in | dur}"
+style = "hot"
+priority = 80
+
+[module.d7]
+if = "limit.d7.pct != null"
+format = "7d <=severity(limit.d7.pct)>{limit.d7.pct | round}%</>"
+style = "muted"
+priority = 55
+
+[module.spend]
+if = "limit.spend.pct != null"
+format = "{if limit.spend.usd != null}{limit.spend.usd | money}/{limit.spend.max | money:0}{else}spend{end} <=severity(limit.spend.pct)>{limit.spend.pct | round}%</>"
+compact = "<=severity(limit.spend.pct)>{limit.spend.pct | round}%</>"
+style = "muted"
+priority = 55
+
+# ---- cost and time ----------------------------------------------------------
+[module.cost]
+if = "cost.usd != null"
+format = "{cost.usd | money}"
+style = "text"
+priority = 60
+
+[module.cost_rate]
+if = "cost.per_hour"
+format = "{cost.per_hour | money}/h"
+style = "muted"
+priority = 20
+
+[module.duration]
+if = "cost.duration"
+format = "{cost.duration | dur}"
+style = "muted"
+priority = 20
+
+[module.clock]
+format = "{time.clock}"
+style = "muted"
+priority = 10
+
+# ---- prompt cache -----------------------------------------------------------
+[module.cache]
+if = "cache.observed"
+format = "cache {if cache.hit != null}{cache.hit | round}%{end}{if cache.warm && cache.left} <muted>{cache.left | clock}</>{end}{if !cache.warm} <warn>cold</>{end}"
+compact = "{if cache.warm}{cache.left | clock}{else}<warn>cold</>{end}"
+style = "muted"
+priority = 35
+
+[module.cache_ttl]
+if = "cache.warm && cache.left"
+format = "{g.cache} {cache.left | clock}"
+style = "= cache.left < 60 ? 'hot' : cache.left < 300 ? 'warn' : 'muted'"
+priority = 35
+
+# ---- activity (read from the end of the transcript) -------------------------
+[module.tool]
+if = "tool.active"
+format = "{g.tool} {tool.active}{if tool.target} <muted>{tool.target | trunc:30}</>{end}"
+compact = "{g.tool} {tool.active}"
+style = "accent"
+priority = 30
+
+[module.agents]
+if = "tool.agents"
+format = "{g.agent} {tool.agents}"
+style = "accent"
+priority = 30
+
+[module.todo]
+if = "todo.total"
+format = "{g.todo} {todo.done}/{todo.total}{if todo.current} <muted>{todo.current | trunc:32}</>{end}"
+compact = "{g.todo} {todo.done}/{todo.total}"
+style = "text"
+priority = 40

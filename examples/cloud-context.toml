@@ -1,0 +1,28 @@
+# Show where your commands will land: Kubernetes context and AWS profile.
+# The kubectl call runs in the background, so a slow cluster never delays the bar.
+theme = "graphite"
+
+[source.kube]
+command = "kubectl config current-context"
+every = "30s"
+timeout = "3s"
+
+[source.aws]
+env = "AWS_PROFILE"
+
+[module.kube]
+if = "source.kube.value"
+format = "k8s {source.kube.value | trunc:24}"
+# Production turns red. Everything else stays quiet.
+style = "= contains(source.kube.value, 'prod') ? 'hot bold' : 'muted'"
+priority = 80
+
+[module.aws]
+if = "source.aws.value"
+format = "aws {source.aws.value}"
+style = "muted"
+priority = 40
+
+[[line]]
+left = ["model", "dir", "git", "kube", "aws"]
+right = ["ctx", "h5"]
